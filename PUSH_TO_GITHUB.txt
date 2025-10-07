@@ -1,0 +1,68 @@
+========================================
+  QUICK COMMANDS TO PUSH TO GITHUB
+========================================
+
+Your Repository: https://github.com/sarthak853/mini-project.git
+
+========================================
+STEP 1: INSTALL GIT (if not installed)
+========================================
+
+Download from: https://git-scm.com/download/win
+Then restart your terminal.
+
+========================================
+STEP 2: CONFIGURE GIT (first time only)
+========================================
+
+git config --global user.name "Your Name"
+git config --global user.email "your-email@example.com"
+
+========================================
+STEP 3: PUSH YOUR PROJECT
+========================================
+
+Copy and paste these commands one by one:
+
+git init
+git add .
+git commit -m "Initial commit: MindMesh with Bytez AI integration"
+git remote add origin https://github.com/sarthak853/mini-project.git
+git branch -M main
+git push -u origin main
+
+========================================
+ALTERNATIVE: USE GITHUB DESKTOP
+========================================
+
+1. Download: https://desktop.github.com/
+2. Install and sign in
+3. Add local repository: D:\testest123-main
+4. Commit changes
+5. Publish repository
+
+========================================
+SECURITY CHECK
+========================================
+
+✅ Your .env.local file (with API key) will NOT be pushed
+✅ It's protected by .gitignore
+✅ Your API key is safe
+
+========================================
+VERIFY AFTER PUSHING
+========================================
+
+Visit: https://github.com/sarthak853/mini-project
+Check that:
+- All files are there
+- .env.local is NOT visible
+- README.md displays correctly
+
+========================================
+NEED HELP?
+========================================
+
+Read: GIT_SETUP_GUIDE.md (detailed instructions)
+
+========================================

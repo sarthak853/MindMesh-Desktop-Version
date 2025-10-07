@@ -1,0 +1,368 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  avatarUrl   String?  @map("avatar_url")
+  preferences String   @default("{}") // JSON as string
+  role        String   @default("user") // user, admin, premium
+  isActive    Boolean  @default(true) @map("is_active")
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  cognitiveMaps      CognitiveMap[]
+  documents          Document[]
+  memoryCards        MemoryCard[]
+  ownedProjects      CollaborativeProject[] @relation("ProjectOwner")
+  collaborations     ProjectCollaborator[]
+  activities         UserActivity[]
+  notifications      Notification[]
+  contentFeeds       ContentFeed[]
+  wellnessData       WellnessData[]
+  focusSessions      FocusSession[]
+  chatSessions       ChatSession[]
+  generatedMedia     GeneratedMedia[]
+  apiUsage           ApiUsage[]
+
+  @@map("users")
+}
+
+model CognitiveMap {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  title       String
+  description String?
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodes       CognitiveNode[]
+
+  @@map("cognitive_maps")
+}
+
+model CognitiveNode {
+  id         String   @id @default(cuid())
+  mapId      String   @map("map_id")
+  type       String
+  title      String
+  content    String?
+  positionX  Float    @map("position_x")
+  positionY  Float    @map("position_y")
+  metadata   String   @default("{}") // JSON as string
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  map               CognitiveMap     @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  sourceConnections NodeConnection[] @relation("SourceNode")
+  targetConnections NodeConnection[] @relation("TargetNode")
+
+  @@map("cognitive_nodes")
+}
+
+model NodeConnection {
+  id               String   @id @default(cuid())
+  sourceNodeId     String   @map("source_node_id")
+  targetNodeId     String   @map("target_node_id")
+  relationshipType String?  @map("relationship_type")
+  label            String?
+  strength         Float    @default(1.0)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  sourceNode CognitiveNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode CognitiveNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@map("node_connections")
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  title      String
+  content    String
+  type       String
+  fileUrl    String?  @map("file_url")
+  embeddings String?  // Vector embeddings for AI similarity search (JSON string)
+  metadata   String   @default("{}") // JSON as string
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model MemoryCard {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  front       String
+  back        String
+  difficulty  Int      @default(1)
+  nextReview  DateTime @map("next_review")
+  reviewCount Int      @default(0) @map("review_count")
+  successRate Float    @default(0.0) @map("success_rate")
+  tags        String   @default("[]") // JSON array as string
+  metadata    String   @default("{}") // JSON as string for spaced repetition data
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("memory_cards")
+}
+
+model CollaborativeProject {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  ownerId     String   @map("owner_id")
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  owner         User                   @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators ProjectCollaborator[]
+  documents     SharedDocument[]
+
+  @@map("collaborative_projects")
+}
+
+model ProjectCollaborator {
+  id          String   @id @default(cuid())
+  projectId   String   @map("project_id")
+  userId      String   @map("user_id")
+  role        String   @default("collaborator")
+  permissions String   @default("{}") // JSON as string
+  joinedAt    DateTime @default(now()) @map("joined_at")
+
+  // Relations
+  project CollaborativeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_collaborators")
+}
+
+model SharedDocument {
+  id           String   @id @default(cuid())
+  projectId    String   @map("project_id")
+  title        String
+  content      String
+  version      Int      @default(1)
+  lastModified DateTime @default(now()) @map("last_modified")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  project CollaborativeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("shared_documents")
+}
+
+// User Activity Tracking
+model UserActivity {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  activityType String  @map("activity_type") // login, map_created, card_reviewed, etc.
+  entityType  String?  @map("entity_type") // cognitive_map, memory_card, document
+  entityId    String?  @map("entity_id")
+  metadata    String   @default("{}") // JSON as string
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_activities")
+}
+
+// Notification System
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  type      String   // review_reminder, reflection_prompt, achievement, etc.
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  priority  String   @default("normal") // low, normal, high, urgent
+  metadata  String   @default("{}") // JSON as string
+  createdAt DateTime @default(now()) @map("created_at")
+  readAt    DateTime? @map("read_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// Content Curation and Feed
+model ContentFeed {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  title         String
+  description   String?
+  sourceUrl     String?  @map("source_url")
+  contentType   String   @map("content_type") // article, video, podcast, research
+  relevanceScore Float   @default(0.5) @map("relevance_score")
+  qualityScore  Float    @default(0.5) @map("quality_score")
+  tags          String   @default("[]") // JSON array as string
+  isBookmarked  Boolean  @default(false) @map("is_bookmarked")
+  isRead        Boolean  @default(false) @map("is_read")
+  readingTime   Int?     @map("reading_time") // in minutes
+  metadata      String   @default("{}") // JSON as string
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("content_feeds")
+}
+
+// Wellness and Productivity Tracking
+model WellnessData {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  date            DateTime
+  stressLevel     Int?     @map("stress_level") // 1-10 scale
+  energyLevel     Int?     @map("energy_level") // 1-10 scale
+  focusQuality    Int?     @map("focus_quality") // 1-10 scale
+  sleepHours      Float?   @map("sleep_hours")
+  exerciseMinutes Int?     @map("exercise_minutes")
+  meditationMinutes Int?   @map("meditation_minutes")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("wellness_data")
+}
+
+// Focus Sessions (Pomodoro, etc.)
+model FocusSession {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  sessionType   String   @map("session_type") // pomodoro, deep_work, break
+  plannedDuration Int    @map("planned_duration") // in minutes
+  actualDuration  Int?   @map("actual_duration") // in minutes
+  isCompleted   Boolean  @default(false) @map("is_completed")
+  productivity  Int?     // 1-10 self-rating
+  distractions  Int      @default(0)
+  notes         String?
+  startedAt     DateTime @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("focus_sessions")
+}
+
+// AI Chat History
+model ChatSession {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  mode        String   // scholar, explorer
+  title       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  metadata    String   @default("{}") // JSON as string
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  sessionId   String   @map("session_id")
+  role        String   // user, assistant, system
+  content     String
+  citations   String   @default("[]") // Array of citation objects (JSON as string)
+  confidence  Float?   // AI confidence score
+  metadata    String   @default("{}") // JSON as string
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+// Media Generation History
+model GeneratedMedia {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  mediaType   String   @map("media_type") // infographic, audio, video
+  title       String
+  description String?
+  fileUrl     String   @map("file_url")
+  thumbnailUrl String? @map("thumbnail_url")
+  duration    Int?     // for audio/video in seconds
+  fileSize    Int?     @map("file_size") // in bytes
+  format      String?  // png, mp3, mp4, etc.
+  metadata    String   @default("{}") // JSON as string
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("generated_media")
+}
+
+// System Configuration and Settings
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String  // JSON as string
+  category  String   @default("general")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
+
+// API Usage Tracking
+model ApiUsage {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  endpoint    String
+  method      String
+  statusCode  Int      @map("status_code")
+  responseTime Int     @map("response_time") // in milliseconds
+  userAgent   String?  @map("user_agent")
+  ipAddress   String?  @map("ip_address")
+  metadata    String   @default("{}") // JSON as string
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("api_usage")
+}
