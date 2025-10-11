@@ -15,9 +15,45 @@ interface MemoryCard {
   updatedAt: Date
 }
 
+// Simple in-memory store used during web/SSR when Electron DB is unavailable
+const InMemoryMemoryCardStore: { cards: Map<string, MemoryCard> } = ((): { cards: Map<string, MemoryCard> } => {
+  const globalKey = '__SSR_MEMORY_CARD_STORE__'
+  const g = globalThis as any
+  if (!g[globalKey]) {
+    g[globalKey] = { cards: new Map<string, MemoryCard>() }
+  }
+  return g[globalKey]
+})()
+
 export class MemoryCardRepository extends BaseRepository<MemoryCard> {
   async create(data: Partial<MemoryCard>): Promise<MemoryCard> {
     try {
+      // Fallback to in-memory store when Electron DB is not available
+      if (!this.isElectronAvailable()) {
+        const id = (globalThis.crypto && 'randomUUID' in globalThis.crypto)
+          ? globalThis.crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`
+        const now = new Date()
+
+        const card: MemoryCard = {
+          id,
+          userId: String(data.userId),
+          front: String(data.front || ''),
+          back: String(data.back || ''),
+          difficulty: Number(data.difficulty || 1),
+          nextReview: data.nextReview || now,
+          reviewCount: Number(data.reviewCount || 0),
+          successRate: Number(data.successRate || 0.0),
+          tags: Array.isArray(data.tags) ? data.tags : [],
+          metadata: data.metadata || {},
+          createdAt: now,
+          updatedAt: now,
+        }
+
+        InMemoryMemoryCardStore.cards.set(id, card)
+        return card
+      }
+
       const id = crypto.randomUUID()
       const now = new Date().toISOString()
       
@@ -47,6 +83,11 @@ export class MemoryCardRepository extends BaseRepository<MemoryCard> {
 
   async findById(id: string): Promise<MemoryCard | null> {
     try {
+      // In-memory fallback
+      if (!this.isElectronAvailable()) {
+        return InMemoryMemoryCardStore.cards.get(id) || null
+      }
+
       const result = await this.executeQuery(
         'SELECT * FROM memory_cards WHERE id = ?',
         [id]
@@ -73,6 +114,14 @@ export class MemoryCardRepository extends BaseRepository<MemoryCard> {
 
   async findByUserId(userId: string): Promise<MemoryCard[]> {
     try {
+      // In-memory fallback
+      if (!this.isElectronAvailable()) {
+        const cards = Array.from(InMemoryMemoryCardStore.cards.values())
+          .filter(card => card.userId === userId)
+          .sort((a, b) => a.nextReview.getTime() - b.nextReview.getTime())
+        return cards
+      }
+
       const result = await this.executeQuery(
         'SELECT * FROM memory_cards WHERE user_id = ? ORDER BY next_review ASC',
         [userId]

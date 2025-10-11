@@ -57,9 +57,16 @@ export class CognitiveMapRepository extends BaseRepository<CognitiveMapWithRelat
           createdAt: now,
           updatedAt: now,
         }
+        
+        console.log('Creating map in memory store:', { id, userId: map.userId, title: map.title })
         InMemoryStore.maps.set(id, map)
         InMemoryStore.mapNodes.set(id, [])
         InMemoryStore.mapConnections.set(id, [])
+        
+        // Verify the map was stored
+        const storedMap = InMemoryStore.maps.get(id)
+        console.log('Verified map storage:', storedMap ? 'success' : 'failed')
+        
         return { ...map, nodes: [], connections: [] }
       }
       const id = crypto.randomUUID()
@@ -89,8 +96,16 @@ export class CognitiveMapRepository extends BaseRepository<CognitiveMapWithRelat
     try {
       // In-memory fallback
       if (!this.isElectronAvailable()) {
+        console.log('Looking for map in memory store:', id)
+        console.log('Available maps:', Array.from(InMemoryStore.maps.keys()))
+        
         const map = InMemoryStore.maps.get(id)
-        if (!map) return null
+        if (!map) {
+          console.log('Map not found in memory store')
+          return null
+        }
+        
+        console.log('Found map in memory store:', { id: map.id, userId: map.userId, title: map.title })
         const nodes = InMemoryStore.mapNodes.get(id) || []
         const connections = InMemoryStore.mapConnections.get(id) || []
         return { ...map, nodes, connections }
@@ -517,8 +532,16 @@ export class CognitiveMapRepository extends BaseRepository<CognitiveMapWithRelat
 }
 
 // In-memory store used in web/SSR where Electron DB is not available
-const InMemoryStore = {
-  maps: new Map<string, CognitiveMap>(),
-  mapNodes: new Map<string, CognitiveNode[]>(),
-  mapConnections: new Map<string, NodeConnection[]>(),
+// Make it global to persist across module reloads in development
+const getInMemoryStore = () => {
+  if (!(globalThis as any).__cognitiveMapStore) {
+    (globalThis as any).__cognitiveMapStore = {
+      maps: new Map<string, CognitiveMap>(),
+      mapNodes: new Map<string, CognitiveNode[]>(),
+      mapConnections: new Map<string, NodeConnection[]>(),
+    }
+  }
+  return (globalThis as any).__cognitiveMapStore
 }
+
+const InMemoryStore = getInMemoryStore()

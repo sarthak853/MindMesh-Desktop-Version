@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { aiService } from '@/lib/ai/ai-service'
-import { DocumentRepository } from '@/lib/repositories/document'
+import { SSRDocumentRepository } from '@/lib/repositories/document-ssr'
 import { CognitiveMapRepository } from '@/lib/repositories/cognitive-map'
 import { cache } from '@/lib/cache'
 
-const documentRepository = new DocumentRepository()
+const documentRepository = new SSRDocumentRepository()
 const cognitiveMapRepository = new CognitiveMapRepository()
 
 export async function POST(request: NextRequest) {
@@ -27,19 +27,114 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the document
+    console.log('Looking for document:', documentId)
     const document = await documentRepository.findById(documentId)
-    if (!document || document.userId !== user.id) {
+    if (!document) {
+      console.error('Document not found with ID:', documentId)
       return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    }
+    if (document.userId !== user.id) {
+      console.error('Document access denied. Document user:', document.userId, 'Current user:', user.id)
+      return NextResponse.json({ error: 'Access denied to document' }, { status: 403 })
     }
 
     // Get the cognitive map
+    console.log('Looking for cognitive map:', mapId)
+    console.log('Current user ID:', user.id)
+    
+    // Add a small delay to ensure any async operations complete
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
     const map = await cognitiveMapRepository.findById(mapId)
-    if (!map || map.userId !== user.id) {
-      return NextResponse.json({ error: 'Map not found' }, { status: 404 })
+    if (!map) {
+      console.error('Map not found with ID:', mapId)
+      console.log('Available maps for user:', user.id)
+      try {
+        const userMaps = await cognitiveMapRepository.findByUserId(user.id)
+        console.log('User maps:', userMaps.map(m => ({ id: m.id, title: m.title, userId: m.userId })))
+        
+        // Try to find the map in all maps (debug)
+        const allMaps = await cognitiveMapRepository.findMany()
+        console.log('All maps in system:', allMaps.map(m => ({ id: m.id, title: m.title, userId: m.userId })))
+        
+        // Check if the map exists but with different user ID
+        const mapWithDifferentUser = allMaps.find(m => m.id === mapId)
+        if (mapWithDifferentUser) {
+          console.error('Map found but with different user ID:', {
+            mapId: mapWithDifferentUser.id,
+            mapUserId: mapWithDifferentUser.userId,
+            currentUserId: user.id
+          })
+        }
+      } catch (mapListError) {
+        console.error('Error listing user maps:', mapListError)
+      }
+      return NextResponse.json({ 
+        error: 'Map not found',
+        mapId: mapId,
+        userId: user.id,
+        nodes: [],
+        connections: [],
+        success: false
+      }, { status: 404 })
+    }
+    if (map.userId !== user.id) {
+      console.error('Map access denied. Map user:', map.userId, 'Current user:', user.id)
+      return NextResponse.json({ 
+        error: 'Access denied to map',
+        nodes: [],
+        connections: [],
+        success: false
+      }, { status: 403 })
     }
 
+    console.log('Map found successfully:', map.title)
+
     // Analyze document and extract concepts
-    const analysis = await aiService.analyzeDocument(document)
+    let analysis
+    try {
+      console.log('Analyzing document with AI service...')
+      analysis = await aiService.analyzeDocument(document)
+      console.log('AI analysis completed successfully')
+    } catch (aiError) {
+      console.error('AI analysis failed, using enhanced fallback:', aiError)
+      
+      // Enhanced fallback: Create meaningful nodes from document content
+      const content = document.content || ''
+      const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20)
+      const words = content.split(/\s+/).filter(word => word.length > 4)
+      const uniqueWords = [...new Set(words)].slice(0, 15)
+      
+      // Extract potential concepts from sentences
+      const concepts = []
+      
+      // Add main document concept
+      concepts.push({
+        type: 'concept',
+        title: document.title || 'Main Topic',
+        description: `Primary topic: ${document.title}. ${sentences[0] || content.substring(0, 100)}...`,
+        relevance: 1.0
+      })
+      
+      // Add concepts from key words
+      uniqueWords.slice(0, Math.min(maxNodes - 1, 4)).forEach((word, index) => {
+        const relatedSentence = sentences.find(s => s.toLowerCase().includes(word.toLowerCase()))
+        concepts.push({
+          type: 'concept',
+          title: word.charAt(0).toUpperCase() + word.slice(1),
+          description: relatedSentence ? relatedSentence.trim() : `Key concept: ${word}`,
+          relevance: 0.9 - (index * 0.1)
+        })
+      })
+      
+      analysis = {
+        keyTopics: uniqueWords.slice(0, 5),
+        summary: sentences[0] || content.substring(0, 200) + '...',
+        concepts: concepts,
+        suggestedNodes: []
+      }
+      console.log('Using enhanced fallback analysis with', analysis.concepts.length, 'concepts')
+    }
     
     // Create nodes from the extracted concepts
     const nodes = []
@@ -69,28 +164,50 @@ export async function POST(request: NextRequest) {
 
     // Create connections between related concepts
     const connections = []
-    for (let i = 0; i < nodes.length - 1; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const connection = await aiService.suggestConnections(
-          nodes[i].title,
-          nodes[j].title
-        )
-        
-        if (connection && connection.strength > 6) {
+    
+    // Limit connections to avoid too many API calls
+    const maxConnections = Math.min(3, Math.floor(nodes.length / 2))
+    let connectionsCreated = 0
+    
+    for (let i = 0; i < nodes.length - 1 && connectionsCreated < maxConnections; i++) {
+      for (let j = i + 1; j < nodes.length && connectionsCreated < maxConnections; j++) {
+        try {
+          const connection = await aiService.suggestConnections(
+            nodes[i].title,
+            nodes[j].title
+          )
+          
+          if (connection && connection.strength > 6) {
+            const conn = await cognitiveMapRepository.addConnection({
+              sourceNodeId: nodes[i].id,
+              targetNodeId: nodes[j].id,
+              relationshipType: connection.relationshipType,
+              label: connection.label,
+              strength: connection.strength / 10,
+            })
+            connections.push(conn)
+            connectionsCreated++
+          }
+        } catch (connectionError) {
+          console.log('Connection generation failed, creating simple connection:', connectionError.message)
+          // Create a simple fallback connection
           const conn = await cognitiveMapRepository.addConnection({
             sourceNodeId: nodes[i].id,
             targetNodeId: nodes[j].id,
-            relationshipType: connection.relationshipType,
-            label: connection.label,
-            strength: connection.strength / 10,
+            relationshipType: 'relates_to',
+            label: 'related',
+            strength: 0.5,
           })
           connections.push(conn)
+          connectionsCreated++
         }
       }
     }
 
     // Clear map cache
     await cache.del(cache.keys.cognitiveMap(mapId))
+
+    console.log('Successfully generated', nodes.length, 'nodes and', connections.length, 'connections')
 
     return NextResponse.json({
       nodes,
@@ -99,14 +216,55 @@ export async function POST(request: NextRequest) {
         summary: analysis.summary,
         keyTopics: analysis.keyTopics,
       },
-      message: `Generated ${nodes.length} nodes and ${connections.length} connections from document`
+      message: `Generated ${nodes.length} nodes and ${connections.length} connections from document`,
+      success: true
     })
 
   } catch (error) {
     console.error('AI node generation error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate nodes from document' },
-      { status: 500 }
-    )
+    
+    // Try to provide a minimal fallback response
+    try {
+      // At least create one node for the document itself
+      const fallbackNode = await cognitiveMapRepository.addNode(mapId, {
+        type: 'concept',
+        title: document.title || 'Document Concept',
+        content: document.content.substring(0, 200) + '...',
+        positionX: 200,
+        positionY: 200,
+        metadata: {
+          sourceDocument: document.id,
+          relevanceScore: 1.0,
+          aiGenerated: false,
+          fallback: true,
+        },
+      })
+
+      console.log('Created fallback node:', fallbackNode.id)
+
+      return NextResponse.json({
+        nodes: [fallbackNode],
+        connections: [],
+        analysis: {
+          summary: document.content.substring(0, 200) + '...',
+          keyTopics: [document.title || 'Document'],
+        },
+        message: 'Created basic mindmap node (AI generation failed)',
+        success: true,
+        fallback: true
+      })
+    } catch (fallbackError) {
+      console.error('Even fallback node creation failed:', fallbackError)
+      return NextResponse.json(
+        { 
+          error: 'Failed to generate nodes from document',
+          details: error.message,
+          nodes: [],
+          connections: [],
+          success: false
+        },
+        { status: 500 }
+      )
+    }
   }
 }

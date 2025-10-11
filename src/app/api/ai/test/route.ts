@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { huggingFaceClient } from '@/lib/ai/huggingface-client'
+import { bytezClient } from '@/lib/ai/bytez-client'
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('Testing Hugging Face connection...')
+    console.log('Testing Bytez connection...')
     
-    if (!huggingFaceClient.isAvailable()) {
+    if (!bytezClient.isAvailable()) {
       return NextResponse.json({
         success: false,
-        error: 'Hugging Face client not available. Check your API key.',
+        error: 'Bytez client not available. Check your API key.',
         config: {
-          hasApiKey: !!process.env.HUGGINGFACE_API_KEY || !!process.env.HF_TOKEN,
-          provider: process.env.AI_PROVIDER,
+          hasApiKey: !!process.env.BYTEZ_API_KEY,
+          provider: 'bytez',
           model: process.env.AI_MODEL,
-          baseUrl: process.env.AI_API_BASE_URL || 'https://api-inference.huggingface.co'
+          baseUrl: process.env.AI_API_BASE_URL || 'https://bytez.com/api'
         }
       }, { status: 503 })
     }
@@ -23,37 +23,37 @@ export async function GET(request: NextRequest) {
       { role: 'user' as const, content: 'Hello! Please respond with "AI connection successful"' }
     ]
 
-    console.log('Sending test request to Hugging Face...')
-    const response = await huggingFaceClient.createChatCompletion(testMessages, {
+    console.log('Sending test request to Bytez...')
+    const response = await bytezClient.createChatCompletion(testMessages, {
       maxTokens: 50,
       temperature: 0.1
     })
 
-    console.log('Hugging Face response:', response)
+    console.log('Bytez response:', response)
 
     return NextResponse.json({
       success: true,
-      message: 'Hugging Face connection successful',
+      message: 'Bytez connection successful',
       response: response.choices[0]?.message?.content || 'No response content',
       config: {
-        provider: process.env.AI_PROVIDER,
+        provider: 'bytez',
         model: process.env.AI_MODEL,
-        baseUrl: process.env.AI_API_BASE_URL || 'https://api-inference.huggingface.co'
+        baseUrl: process.env.AI_API_BASE_URL || 'https://bytez.com/api'
       }
     })
 
   } catch (error: any) {
-    console.error('Hugging Face test error:', error)
+    console.error('Bytez test error:', error)
     
     return NextResponse.json({
       success: false,
       error: error.message || 'Unknown error',
       details: error.toString(),
       config: {
-        hasApiKey: !!process.env.HUGGINGFACE_API_KEY || !!process.env.HF_TOKEN,
-        provider: process.env.AI_PROVIDER,
+        hasApiKey: !!process.env.BYTEZ_API_KEY,
+        provider: 'bytez',
         model: process.env.AI_MODEL,
-        baseUrl: process.env.AI_API_BASE_URL || 'https://api-inference.huggingface.co'
+        baseUrl: process.env.AI_API_BASE_URL || 'https://bytez.com/api'
       }
     }, { status: 500 })
   }
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       { role: 'user' as const, content: message }
     ]
 
-    const response = await huggingFaceClient.createChatCompletion(testMessages, {
+    const response = await bytezClient.createChatCompletion(testMessages, {
       maxTokens: 200,
       temperature: 0.7
     })
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Hugging Face test error:', error)
+    console.error('Bytez test error:', error)
     
     return NextResponse.json({
       success: false,

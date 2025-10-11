@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,6 +20,7 @@ interface CognitiveMap {
 }
 
 export default function CognitiveMapsPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const [maps, setMaps] = useState<CognitiveMap[]>([])
   const [selectedMap, setSelectedMap] = useState<string | null>(null)
@@ -172,7 +174,7 @@ export default function CognitiveMapsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Button variant="ghost" onClick={() => window.location.href = '/'} className="mr-4">
+              <Button variant="ghost" onClick={() => router.push('/')} className="mr-4">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
               </Button>

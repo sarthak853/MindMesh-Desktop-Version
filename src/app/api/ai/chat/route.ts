@@ -1,35 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { aiService } from '@/lib/ai/ai-service'
-import { DocumentRepository } from '@/lib/repositories/document'
-import { AIContext } from '@/types'
-import { openaiClient } from '@/lib/ai/openai-client'
-import { huggingFaceClient } from '@/lib/ai/huggingface-client'
-import { bytezClient } from '@/lib/ai/bytez-client'
+import { SSRDocumentRepository } from '@/lib/repositories/document-ssr'
 
-const documentRepository = new DocumentRepository()
+const documentRepository = new SSRDocumentRepository()
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if any AI provider is configured
-    const provider = process.env.AI_PROVIDER || 'huggingface'
-    let isProviderAvailable = false
-    
-    if (provider === 'bytez') {
-      isProviderAvailable = bytezClient.isAvailable()
-    } else if (provider === 'huggingface') {
-      isProviderAvailable = huggingFaceClient.isAvailable()
-    } else {
-      isProviderAvailable = openaiClient.isAvailable()
-    }
-    
-    if (!isProviderAvailable) {
-      return NextResponse.json(
-        { error: `AI provider (${provider}) not configured. Please check your API key configuration.` },
-        { status: 503 }
-      )
-    }
-
     const user = await getCurrentUser()
     
     if (!user) {
@@ -37,121 +14,87 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { 
-      query, 
-      mode = 'scholar', 
-      documentIds = [], 
-      conversationHistory = [],
-      currentProject 
-    } = body
+    const { query, mode = 'scholar', conversationHistory = [] } = body
 
     if (!query?.trim()) {
-      return NextResponse.json({ error: 'Query is required' }, { status: 400 })
-    }
-
-    // Validate mode
-    if (!['scholar', 'explorer'].includes(mode)) {
-      return NextResponse.json({ error: 'Invalid mode. Must be "scholar" or "explorer"' }, { status: 400 })
-    }
-
-    // Get relevant documents
-    let uploadedDocuments = []
-    if (documentIds.length > 0) {
-      const documents = await Promise.all(
-        documentIds.map(async (id: string) => {
-          const doc = await documentRepository.findById(id)
-          if (doc && doc.userId === user.id) {
-            return {
-              id: doc.id,
-              title: doc.title,
-              content: doc.content,
-              type: doc.type,
-              embeddings: doc.embeddings,
-              metadata: doc.metadata,
-            }
-          }
-          return null
-        })
+      return NextResponse.json(
+        { error: 'Query is required' },
+        { status: 400 }
       )
-      uploadedDocuments = documents.filter(doc => doc !== null)
-    } else {
-      // If no specific documents provided, get user's recent documents
-      const recentDocs = await documentRepository.findByUserId(user.id)
-      uploadedDocuments = recentDocs.slice(0, 5).map(doc => ({
-        id: doc.id,
-        title: doc.title,
-        content: doc.content,
-        type: doc.type,
-        embeddings: doc.embeddings,
-        metadata: doc.metadata,
-      }))
     }
 
-    // Create AI context
-    const context: AIContext = {
-      userId: user.id,
-      mode: mode as 'scholar' | 'explorer',
-      uploadedDocuments,
-      conversationHistory: conversationHistory.slice(-10), // Keep last 10 messages
-      currentProject,
-    }
+    console.log('AI Chat request:', { query, mode, userId: user.id })
 
-    // Generate AI response
-    const response = await aiService.generateResponse(context, query.trim())
-
-    // Analyze citation quality and provide fallback suggestions if needed
-    let citationAnalysis = null
-    let fallbackResponse = null
-    
-    if (context.mode === 'scholar' && response.citations) {
-      const { CitationService } = await import('@/lib/ai/citation-service')
+    try {
+      // Get user's documents for context
+      const userDocuments = await documentRepository.findByUserId(user.id)
+      console.log(`Found ${userDocuments.length} documents for user context`)
       
-      citationAnalysis = await CitationService.analyzeCitationQuality(
-        response.citations,
-        uploadedDocuments,
-        query.trim()
-      )
-
-      // Generate fallback response if sources are insufficient
-      if (citationAnalysis.hasInsufficientSources) {
-        fallbackResponse = await CitationService.generateFallbackResponse(
-          query.trim(),
-          uploadedDocuments,
-          true
-        )
+      // Create AI context
+      const context = {
+        userId: user.id,
+        mode: mode as 'scholar' | 'explorer',
+        uploadedDocuments: userDocuments.map(doc => ({
+          id: doc.id,
+          title: doc.title,
+          content: doc.content.substring(0, 2000) // Limit content for context
+        })),
+        conversationHistory: conversationHistory.slice(-10) // Keep last 10 messages
       }
+
+      // Generate AI response (this now includes fallback handling)
+      const response = await aiService.generateResponse(context, query)
+
+      console.log('AI chat response generated successfully')
+
+      return NextResponse.json({
+        response: {
+          content: response.content,
+          citations: response.citations || [],
+          confidence: response.confidence || 0.8,
+          suggestedActions: response.suggestedActions || [],
+          relatedConcepts: response.relatedConcepts || []
+        }
+      })
+
+    } catch (aiError) {
+      console.error('Unexpected AI chat error:', aiError)
+      
+      // Final fallback if even the AI service fallback fails
+      const emergencyFallback = {
+        content: `I'm experiencing technical difficulties right now, but I'm still here to help!
+
+🤖 **What I can suggest:**
+• Your question "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}" is interesting
+• Try exploring your uploaded documents for relevant information
+• Consider breaking complex questions into smaller parts
+• Use the other features like cognitive maps and memory cards
+
+💡 **Alternative approaches:**
+• Create a cognitive map to visualize your thoughts
+• Generate memory cards from your documents
+• Upload relevant materials to build your knowledge base
+
+I'll be back to full functionality soon. Thanks for your patience!`,
+        citations: [],
+        confidence: 0.2,
+        suggestedActions: [
+          'Try again in a moment',
+          'Explore your documents',
+          'Create a cognitive map',
+          'Generate memory cards'
+        ],
+        relatedConcepts: ['knowledge management', 'learning', 'research']
+      }
+
+      return NextResponse.json({ response: emergencyFallback })
     }
-
-    return NextResponse.json({
-      response,
-      citationAnalysis,
-      fallbackResponse,
-      context: {
-        mode,
-        documentsUsed: uploadedDocuments.length,
-        hasConversationHistory: conversationHistory.length > 0,
-        sourceQuality: citationAnalysis ? {
-          averageConfidence: citationAnalysis.averageConfidence,
-          citedSources: citationAnalysis.citedSources,
-          totalSources: citationAnalysis.totalSources
-        } : null
-      }
-    })
 
   } catch (error) {
-    const message = (error as any)?.message || 'Failed to generate AI response'
-    console.error('Error in AI chat:', message)
-    // Map known error messages to HTTP status codes for clearer diagnostics
-    let status = 500
-    if (message.includes('Unauthorized')) status = 401
-    else if (message.includes('Invalid API key')) status = 401
-    else if (message.includes('Rate limit')) status = 429
-    else if (message.includes('temporarily unavailable')) status = 503
-    else if (message.includes('AI provider not configured')) status = 503
-
+    console.error('AI chat error:', error)
     return NextResponse.json(
-      { error: message },
-      { status }
+      { error: 'Failed to process chat request' },
+      { status: 500 }
     )
   }
 }

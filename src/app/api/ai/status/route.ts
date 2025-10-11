@@ -1,34 +1,37 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
-import { openaiClient } from '@/lib/ai/openai-client'
-import { huggingFaceClient } from '@/lib/ai/huggingface-client'
 import { bytezClient } from '@/lib/ai/bytez-client'
 
 export async function GET() {
   try {
-    const user = await getCurrentUser()
-    const hasOpenRouter = !!process.env.OPENROUTER_API_KEY
-    const hasOpenAI = !!process.env.OPENAI_API_KEY
-    const hasHF = !!(process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN)
-    const hasBytez = !!process.env.BYTEZ_API_KEY
-    const envProvider = process.env.AI_PROVIDER || null
-    const provider = envProvider || (hasBytez ? 'bytez' : (hasOpenRouter ? 'openrouter' : (hasOpenAI ? 'openai' : (hasHF ? 'huggingface' : null))))
-
-    const providerAvailable = provider === 'bytez' ? bytezClient.isAvailable() : 
-                              (provider === 'huggingface' ? huggingFaceClient.isAvailable() : openaiClient.isAvailable())
+    const status = {
+      timestamp: new Date().toISOString(),
+      bytezClient: {
+        available: bytezClient.isAvailable(),
+        model: bytezClient.getModel(),
+        hasApiKey: !!process.env.BYTEZ_API_KEY,
+        baseUrl: process.env.AI_API_BASE_URL || 'https://api.bytez.com/v1'
+      },
+      fallbackMode: !bytezClient.isAvailable(),
+      endpoints: {
+        chat: '/api/ai/chat',
+        generateNodes: '/api/ai/generate-nodes',
+        generateMemoryCards: '/api/ai/generate-memory-cards',
+        test: '/api/ai/test'
+      }
+    }
 
     return NextResponse.json({
-      isAuthenticated: !!user,
-      providerAvailable,
-      provider,
-      hasOpenRouter,
-      hasOpenAI,
-      hasHF,
-      hasBytez,
-      baseURL: process.env.AI_API_BASE_URL || (hasBytez ? 'https://bytez.com/api' : (hasOpenRouter ? 'https://api.openrouter.ai/v1' : undefined)),
-      model: process.env.AI_MODEL || undefined,
+      status: 'healthy',
+      ...status
     })
   } catch (error) {
-    return NextResponse.json({ error: 'Status check failed' }, { status: 500 })
+    return NextResponse.json(
+      { 
+        status: 'error', 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      },
+      { status: 500 }
+    )
   }
 }

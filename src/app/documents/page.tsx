@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,6 +39,7 @@ interface Document {
 }
 
 export default function DocumentsPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const [documents, setDocuments] = useState<Document[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -52,52 +54,78 @@ export default function DocumentsPage() {
     loadDocuments()
   }, [])
 
-  const loadDocuments = async () => {
-    // Mock data - in real app, this would fetch from the database
-    const mockDocuments: Document[] = [
-      {
-        id: '1',
-        title: 'Introduction to Machine Learning',
-        type: 'pdf',
-        size: '2.3 MB',
-        uploadedAt: '2 days ago',
-        tags: ['machine-learning', 'ai', 'introduction'],
-        processed: true,
-        summary: 'Comprehensive overview of machine learning fundamentals, algorithms, and applications.'
-      },
-      {
-        id: '2',
-        title: 'Deep Learning Research Paper',
-        type: 'pdf',
-        size: '1.8 MB',
-        uploadedAt: '1 week ago',
-        tags: ['deep-learning', 'research', 'neural-networks'],
-        processed: true,
-        summary: 'Latest research on deep neural network architectures and their performance improvements.'
-      },
-      {
-        id: '3',
-        title: 'React Best Practices',
-        type: 'web',
-        size: '450 KB',
-        uploadedAt: '3 days ago',
-        tags: ['react', 'frontend', 'best-practices'],
-        processed: true,
-        summary: 'Collection of React development best practices and common patterns.'
-      },
-      {
-        id: '4',
-        title: 'Meeting Notes - Project Planning',
-        type: 'note',
-        size: '12 KB',
-        uploadedAt: '1 day ago',
-        tags: ['meeting', 'planning', 'project'],
-        processed: true,
-        summary: 'Notes from the project planning meeting discussing timeline and deliverables.'
+  const handleExportDocument = (doc: Document) => {
+    try {
+      // Create a blob with the document content
+      const content = doc.content || `${doc.title}\n\nNo content available.`
+      const blob = new Blob([content], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${doc.title}.txt`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast.success(`Exported: ${doc.title}`)
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error('Failed to export document')
+    }
+  }
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/documents/${docId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete document')
       }
-    ]
-    
-    setDocuments(mockDocuments)
+
+      // Remove from local state
+      setDocuments(prev => prev.filter(d => d.id !== docId))
+      toast.success('Document deleted successfully')
+    } catch (error) {
+      console.error('Delete error:', error)
+      toast.error('Failed to delete document')
+    }
+  }
+
+  const loadDocuments = async () => {
+    try {
+      const response = await fetch('/api/documents')
+      if (response.ok) {
+        const data = await response.json()
+        const formattedDocs = data.documents?.map((doc: any) => ({
+          id: doc.id,
+          title: doc.title,
+          type: doc.type,
+          size: '0 KB', // Calculate from content length or metadata
+          uploadedAt: new Date(doc.createdAt).toLocaleDateString(),
+          tags: doc.metadata?.tags || [],
+          processed: false,
+          summary: doc.content?.substring(0, 100) + '...' || 'No content',
+          content: doc.content,
+          fileUrl: doc.fileUrl
+        })) || []
+        setDocuments(formattedDocs)
+      } else {
+        // If API fails, start with empty array
+        setDocuments([])
+      }
+    } catch (error) {
+      console.error('Failed to load documents:', error)
+      setDocuments([])
+    }
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,15 +153,15 @@ export default function DocumentsPage() {
           throw new Error(result?.error || 'Upload failed')
         }
         const created = result.document
-        const newDoc = {
+        const newDoc: Document = {
           id: created.id,
           title: created.title,
-          type: created.type,
+          type: created.type as 'pdf' | 'text' | 'web' | 'note',
           size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
           uploadedAt: 'Just now',
           tags: [],
-          processed: true,
-          summary: 'Document uploaded successfully.',
+          processed: false, // Set to false initially
+          summary: 'Document uploaded successfully. Click "Process" to generate mindmap and memory cards.',
           content: created.content,
           fileUrl: created.fileUrl
         }
@@ -141,13 +169,7 @@ export default function DocumentsPage() {
       }
       setDocuments(prev => [...uploadedDocs, ...prev])
       
-      // Automatically process the first uploaded document
-      if (uploadedDocs.length > 0) {
-        const firstDoc = uploadedDocs[0]
-        setProcessingDoc(firstDoc)
-        setShowProcessor(true)
-        toast.success(`${uploadedDocs.length} document(s) uploaded successfully!`)
-      }
+      toast.success(`${uploadedDocs.length} document(s) uploaded successfully! Click "Process" to generate mindmap and memory cards.`)
     } catch (err) {
       console.error(err)
       toast.error('Failed to upload document(s). Please try again.')
@@ -192,7 +214,7 @@ export default function DocumentsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Button variant="ghost" onClick={() => window.location.href = '/'} className="mr-4">
+              <Button variant="ghost" onClick={() => router.push('/')} className="mr-4">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
               </Button>
@@ -377,15 +399,27 @@ export default function DocumentsPage() {
                           setPreviewDoc(doc)
                           setIsPreviewOpen(true)
                         }}
+                        title="View document content"
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleExportDocument(doc)}
+                        title="Export document"
+                      >
                         <Download className="h-4 w-4 mr-1" />
                         Export
                       </Button>
-                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        title="Delete document"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
