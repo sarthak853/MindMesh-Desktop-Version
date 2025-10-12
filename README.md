@@ -113,7 +113,7 @@
    BYTEZ_API_KEY=your_bytez_api_key
    AI_PROVIDER=bytez
    AI_API_BASE_URL=https://bytez.com/api
-   AI_MODEL=amgadhasan/Meta-Llama-3.1-8B-Instruct
+   AI_MODEL=TinyLlama/TinyLlama-1.1B-Chat-v0.3
    
    # Database
    DATABASE_URL="file:./dev.db"

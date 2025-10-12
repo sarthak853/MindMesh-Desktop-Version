@@ -102,33 +102,65 @@ export async function POST(request: NextRequest) {
       // Enhanced fallback: Create meaningful nodes from document content
       const content = document.content || ''
       const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20)
-      const words = content.split(/\s+/).filter(word => word.length > 4)
-      const uniqueWords = [...new Set(words)].slice(0, 15)
+      const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim().length > 50)
       
-      // Extract potential concepts from sentences
+      // Extract key concepts more intelligently
       const concepts = []
       
       // Add main document concept
       concepts.push({
         type: 'concept',
         title: document.title || 'Main Topic',
-        description: `Primary topic: ${document.title}. ${sentences[0] || content.substring(0, 100)}...`,
+        description: `${document.title}. ${sentences[0] || content.substring(0, 150)}...`,
         relevance: 1.0
       })
       
-      // Add concepts from key words
-      uniqueWords.slice(0, Math.min(maxNodes - 1, 4)).forEach((word, index) => {
-        const relatedSentence = sentences.find(s => s.toLowerCase().includes(word.toLowerCase()))
+      // Extract concepts from paragraphs (better than individual words)
+      paragraphs.slice(0, Math.min(maxNodes - 1, 4)).forEach((paragraph, index) => {
+        const firstSentence = paragraph.split(/[.!?]+/)[0].trim()
+        const words = firstSentence.split(/\s+/)
+        
+        // Find the most significant word/phrase (usually nouns or key terms)
+        let conceptTitle = 'Key Concept'
+        if (words.length > 3) {
+          // Look for capitalized words (proper nouns) or longer words
+          const significantWords = words.filter(w => 
+            w.length > 4 && (w[0] === w[0].toUpperCase() || w.length > 6)
+          )
+          if (significantWords.length > 0) {
+            conceptTitle = significantWords[0]
+          } else {
+            // Fallback to the longest word
+            conceptTitle = words.reduce((a, b) => a.length > b.length ? a : b)
+          }
+        }
+        
         concepts.push({
           type: 'concept',
-          title: word.charAt(0).toUpperCase() + word.slice(1),
-          description: relatedSentence ? relatedSentence.trim() : `Key concept: ${word}`,
+          title: conceptTitle.charAt(0).toUpperCase() + conceptTitle.slice(1).toLowerCase(),
+          description: firstSentence.length > 100 ? firstSentence.substring(0, 100) + '...' : firstSentence,
           relevance: 0.9 - (index * 0.1)
         })
       })
       
+      // If we don't have enough concepts from paragraphs, add some from key terms
+      if (concepts.length < maxNodes) {
+        const keyTerms = content.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || []
+        const uniqueTerms = [...new Set(keyTerms)].slice(0, maxNodes - concepts.length)
+        
+        uniqueTerms.forEach((term, index) => {
+          const relatedSentence = sentences.find(s => s.includes(term))
+          concepts.push({
+            type: 'concept',
+            title: term,
+            description: relatedSentence ? relatedSentence.substring(0, 100) + '...' : `Key concept: ${term}`,
+            relevance: 0.7 - (index * 0.1)
+          })
+        })
+      }
+      
       analysis = {
-        keyTopics: uniqueWords.slice(0, 5),
+        keyTopics: concepts.slice(0, 5).map(c => c.title),
         summary: sentences[0] || content.substring(0, 200) + '...',
         concepts: concepts,
         suggestedNodes: []

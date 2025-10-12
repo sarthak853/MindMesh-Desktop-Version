@@ -130,7 +130,7 @@ ${colors.reset}
 ${colors.cyan}BYTEZ_API_KEY=your_api_key_here
 AI_PROVIDER=bytez
 AI_API_BASE_URL=https://bytez.com/api
-AI_MODEL=amgadhasan/Meta-Llama-3.1-8B-Instruct${colors.reset}
+AI_MODEL=TinyLlama/TinyLlama-1.1B-Chat-v0.3${colors.reset}
 `)
   }
 

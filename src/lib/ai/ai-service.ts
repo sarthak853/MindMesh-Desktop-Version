@@ -59,7 +59,9 @@ export class AIService {
       }
     } catch (error) {
       console.error('Error generating memory cards:', error)
-      throw new Error(`Failed to generate memory cards: ${error.message}`)
+      console.log('Using enhanced fallback for memory card generation')
+      // Enhanced fallback - generate cards based on content analysis
+      return this.generateFallbackMemoryCards(content)
     }
   }
 
@@ -422,7 +424,9 @@ Remember, the best insights often come from your own thinking and connections!`
       }
     } catch (error) {
       console.error('Error analyzing document:', error)
-      throw new Error(`Failed to analyze document: ${error.message}`)
+      console.log('Using enhanced fallback for document analysis')
+      // Enhanced fallback - analyze document without AI
+      return this.generateFallbackAnalysis(document)
     }
   }
 
@@ -821,6 +825,130 @@ Return only a comma-separated list of concepts.`
     if (normA === 0 || normB === 0) return 0
 
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+  }
+
+  private generateFallbackMemoryCards(content: string): Array<{
+    front: string
+    back: string
+    difficulty: number
+    tags: string[]
+  }> {
+    console.log('Generating fallback memory cards from content')
+    const cards: Array<{front: string, back: string, difficulty: number, tags: string[]}> = []
+    
+    // Extract key sentences and concepts
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20)
+    const words = content.toLowerCase().split(/\s+/)
+    
+    // Generate cards from sentences
+    sentences.slice(0, 5).forEach((sentence, index) => {
+      const trimmed = sentence.trim()
+      if (trimmed.length > 30) {
+        const parts = trimmed.split(/[:,;]/)
+        if (parts.length >= 2) {
+          cards.push({
+            front: parts[0].trim() + '?',
+            back: parts.slice(1).join(' ').trim(),
+            difficulty: Math.min(3, Math.max(1, Math.floor(trimmed.length / 50))),
+            tags: ['auto-generated', 'fallback']
+          })
+        } else {
+          // Create question from statement
+          const question = trimmed.startsWith('The ') ? 
+            'What is ' + trimmed.substring(4) + '?' :
+            'What about ' + trimmed.split(' ').slice(0, 3).join(' ') + '?'
+          
+          cards.push({
+            front: question,
+            back: trimmed,
+            difficulty: 2,
+            tags: ['auto-generated', 'fallback']
+          })
+        }
+      }
+    })
+
+    // If no cards generated, create basic ones
+    if (cards.length === 0) {
+      cards.push({
+        front: 'What is the main topic of this content?',
+        back: content.substring(0, 100) + '...',
+        difficulty: 1,
+        tags: ['basic', 'fallback']
+      })
+    }
+
+    console.log(`Generated ${cards.length} fallback memory cards`)
+    return cards
+  }
+
+  private generateFallbackAnalysis(document: Document): {
+    keyTopics: string[]
+    summary: string
+    concepts: Array<{
+      type: string
+      title: string
+      description: string
+      relevance: number
+    }>
+    suggestedNodes: Array<{
+      type: string
+      title: string
+      content: string
+    }>
+  } {
+    console.log('Generating fallback analysis for document:', document.title)
+    
+    const content = document.content
+    const words = content.toLowerCase().split(/\s+/)
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10)
+    
+    // Extract key topics (most frequent meaningful words)
+    const wordFreq: {[key: string]: number} = {}
+    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those'])
+    
+    words.forEach(word => {
+      const clean = word.replace(/[^\w]/g, '')
+      if (clean.length > 3 && !stopWords.has(clean)) {
+        wordFreq[clean] = (wordFreq[clean] || 0) + 1
+      }
+    })
+    
+    const keyTopics = Object.entries(wordFreq)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([word]) => word)
+    
+    // Generate summary (first few sentences)
+    const summary = sentences.slice(0, 3).join('. ') + '.'
+    
+    // Generate concepts
+    const concepts = keyTopics.map((topic, index) => ({
+      type: 'concept',
+      title: topic.charAt(0).toUpperCase() + topic.slice(1),
+      description: `Key concept related to ${topic}`,
+      relevance: Math.max(0.3, 1 - (index * 0.15))
+    }))
+    
+    // Generate suggested nodes
+    const suggestedNodes = sentences.slice(0, 4).map((sentence, index) => ({
+      type: index === 0 ? 'main_topic' : 'supporting_point',
+      title: `Point ${index + 1}`,
+      content: sentence.trim()
+    }))
+    
+    console.log('Fallback analysis completed:', {
+      keyTopics: keyTopics.length,
+      concepts: concepts.length,
+      suggestedNodes: suggestedNodes.length
+    })
+    
+    return {
+      keyTopics,
+      summary,
+      concepts,
+      suggestedNodes
+    }
   }
 }
 

@@ -7,7 +7,7 @@ export class BytezClient {
   constructor() {
     const apiKey = process.env.BYTEZ_API_KEY
     const baseURL = process.env.AI_API_BASE_URL || 'https://api.bytez.com/v1'
-    const model = process.env.AI_MODEL || 'amgadhasan/Meta-Llama-3.1-8B-Instruct'
+    const model = process.env.AI_MODEL || 'TinyLlama/TinyLlama-1.1B-Chat-v0.3'
 
     if (!apiKey) {
       console.warn('Bytez API key not configured - using fallback mode')

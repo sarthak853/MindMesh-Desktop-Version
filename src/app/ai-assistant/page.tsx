@@ -313,7 +313,7 @@ What aspect excites you most? I'd love to dive deeper into whichever direction s
         <header className="bg-white border-b border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Button variant="ghost" onClick={() => window.location.href = '/'} className="mr-2">
+              <Button variant="ghost" onClick={() => router.push('/')} className="mr-2">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
               </Button>
