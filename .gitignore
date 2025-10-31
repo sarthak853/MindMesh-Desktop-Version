@@ -1,16 +1,15 @@
 # Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Next.js
-.next/
-out/
-build/
-dist/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Environment variables
 .env
@@ -23,40 +22,51 @@ dist/
 *.db
 *.sqlite
 *.sqlite3
-prisma/dev.db
-prisma/migrations/
+
+# Uploads
+uploads/
+temp/
 
 # Logs
-logs
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Runtime data
-pids
+pids/
 *.pid
 *.seed
 *.pid.lock
 
 # Coverage directory used by tools like istanbul
 coverage/
-*.lcov
+.nyc_output/
 
-# nyc test coverage
-.nyc_output
+# Grunt intermediate storage
+.grunt/
+
+# Bower dependency directory
+bower_components/
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release/
 
 # Dependency directories
 jspm_packages/
+
+# TypeScript v1 declaration files
+typings/
 
 # Optional npm cache directory
 .npm
 
 # Optional eslint cache
 .eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
 
 # Optional REPL history
 .node_repl_history
@@ -67,33 +77,21 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
+# dotenv environment variables file
+.env
 
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
+# Electron build output
+dist/
+out/
 
-# yarn v2
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
-
-# Electron
-release/
-app/dist/
-app/build/
-
-# IDE
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -102,17 +100,19 @@ app/build/
 ehthumbs.db
 Thumbs.db
 
+# Python specific
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Machine learning models
+models/
+*.model
+*.pkl
+*.pickle
+
 # Temporary files
-*.tmp
-*.temp
-
-# AI API Keys (security)
-.env.local
-.env.production
-
-# Build artifacts
-*.tsbuildinfo
-
-# Kiro specific
-.kiro/cache/
-.kiro/logs/
+tmp/
+temp/
+.tmp/

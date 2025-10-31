@@ -1,4 +1,4 @@
-import { bytezClient } from './bytez-client'
+// No API clients needed - using local fallback systems only
 import { createContextualPrompt, DOCUMENT_ANALYSIS_PROMPT, NODE_GENERATION_PROMPT, MEMORY_CARD_GENERATION_PROMPT, CONNECTION_SUGGESTION_PROMPT } from './prompt-templates'
 import { AIContext, AIResponse, Citation, Document } from '@/types'
 
@@ -6,8 +6,9 @@ export class AIService {
   private conversationContexts: Map<string, AIContext> = new Map()
 
   private getClient() {
-    console.log('Using Bytez AI client')
-    return bytezClient
+    console.log('Using local fallback mode - no API calls')
+    // Always throw error to trigger fallback systems
+    throw new Error('AI_SERVICE_UNAVAILABLE')
   }
 
   // Context management for AI conversations
@@ -29,40 +30,9 @@ export class AIService {
     difficulty: number
     tags: string[]
   }>> {
-    try {
-      console.log('Starting memory card generation, content length:', content.length)
-      const prompt = MEMORY_CARD_GENERATION_PROMPT.replace('{content}', content.substring(0, 1500))
-      
-      console.log('Calling Bytez API for memory card generation...')
-      const completion = await this.getClient().createChatCompletion([
-        { role: 'system', content: prompt }
-      ], {
-        temperature: 0.3,
-        maxTokens: 1000,
-        userId,
-      })
-
-      const response = completion.choices[0]?.message?.content || ''
-      console.log('Bytez API response received for memory cards, length:', response.length)
-      
-      try {
-        const cards = JSON.parse(response)
-        const validCards = Array.isArray(cards) ? cards : []
-        console.log('Parsed memory cards successfully:', validCards.length)
-        return validCards
-      } catch (parseError) {
-        console.log('JSON parsing failed, using text parsing fallback')
-        // Fallback parsing if JSON fails
-        const fallbackCards = this.parseMemoryCardsFromText(response)
-        console.log('Fallback parsing resulted in:', fallbackCards.length, 'cards')
-        return fallbackCards
-      }
-    } catch (error) {
-      console.error('Error generating memory cards:', error)
-      console.log('Using enhanced fallback for memory card generation')
-      // Enhanced fallback - generate cards based on content analysis
-      return this.generateFallbackMemoryCards(content)
-    }
+    console.log('Generating memory cards using local fallback system, content length:', content.length)
+    // Always use fallback - no API calls
+    return this.generateFallbackMemoryCards(content)
   }
 
   async suggestConnections(node1Content: string, node2Content: string): Promise<{
@@ -71,78 +41,16 @@ export class AIService {
     label: string
     explanation: string
   } | null> {
-    try {
-      const prompt = CONNECTION_SUGGESTION_PROMPT
-        .replace('{title1}', node1Content.split(':')[0] || 'Node 1')
-        .replace('{content1}', node1Content)
-        .replace('{title2}', node2Content.split(':')[0] || 'Node 2')
-        .replace('{content2}', node2Content)
-
-      const completion = await this.getClient().createChatCompletion([
-        { role: 'system', content: prompt }
-      ], {
-        temperature: 0.4,
-        maxTokens: 300,
-      })
-
-      const response = completion.choices[0]?.message?.content || ''
-      
-      try {
-        return JSON.parse(response)
-      } catch {
-        // Fallback parsing
-        return this.parseConnectionFromText(response)
-      }
-    } catch (error) {
-      console.error('Error suggesting connections:', error)
-      return null
-    }
+    console.log('Suggesting connections using local analysis')
+    // Use simple text analysis to suggest connections
+    return this.generateLocalConnectionSuggestion(node1Content, node2Content)
   }
 
   async generateResponse(context: AIContext, query: string): Promise<AIResponse> {
-    try {
-      console.log('Generating AI response for query:', query.substring(0, 100) + '...')
-      
-      const prompt = createContextualPrompt(
-        context.mode,
-        query,
-        context.uploadedDocuments,
-        context.conversationHistory
-      )
-
-      const completion = await this.getClient().createChatCompletion([
-        { role: 'system', content: prompt },
-        { role: 'user', content: query }
-      ], {
-        temperature: context.mode === 'explorer' ? 0.8 : 0.3,
-        maxTokens: 1500,
-        userId: context.userId,
-      })
-
-      const content = completion.choices[0]?.message?.content || ''
-      console.log('AI response generated successfully')
-      
-      // Extract citations if in scholar mode
-      const citations = context.mode === 'scholar' 
-        ? await this.extractCitations(content, context.uploadedDocuments, query)
-        : []
-
-      // Generate related concepts
-      const relatedConcepts = await this.generateRelatedConcepts(query, content)
-
-      return {
-        content,
-        citations,
-        confidence: this.calculateConfidence(content, context),
-        suggestedActions: this.generateSuggestedActions(context.mode, query),
-        relatedConcepts,
-      }
-    } catch (error: any) {
-      console.error('AI service error, using fallback response:', error.message)
-      
-      // Generate intelligent fallback response based on context
-      return this.generateFallbackResponse(context, query, error.message)
-    }
+    console.log('Generating response using local fallback system for query:', query.substring(0, 100) + '...')
+    
+    // Always use fallback - no API calls
+    return this.generateFallbackResponse(context, query, 'Local mode - no API calls')
   }
 
   private generateFallbackResponse(context: AIContext, query: string, errorMessage: string): AIResponse {
@@ -301,77 +209,43 @@ Remember, the best insights often come from your own thinking and connections!`
   }
 
   async generateStreamingResponse(context: AIContext, query: string): Promise<ReadableStream> {
-    try {
-      const prompt = createContextualPrompt(
-        context.mode,
-        query,
-        context.uploadedDocuments,
-        context.conversationHistory
-      )
-
-      const stream = await this.getClient().createStreamingChatCompletion([
-        { role: 'system', content: prompt },
-        { role: 'user', content: query }
-      ], {
-        temperature: context.mode === 'explorer' ? 0.8 : 0.3,
-        maxTokens: 1500,
-        userId: context.userId,
-      })
-
-      // Create a readable stream that processes the OpenAI stream
-      return new ReadableStream({
-        async start(controller) {
-          let fullContent = ''
-          
-          try {
-            for await (const chunk of stream) {
-              const content = chunk.choices[0]?.delta?.content || ''
-              if (content) {
-                fullContent += content
-                
-                // Send chunk to client
-                const data = JSON.stringify({
-                  type: 'content',
-                  content,
-                  fullContent,
-                })
-                controller.enqueue(new TextEncoder().encode(`data: ${data}\n\n`))
-              }
-            }
-
-            // Generate final metadata after stream completes
-            const citations = context.mode === 'scholar' 
-              ? await this.extractCitations(fullContent, context.uploadedDocuments, query)
-              : []
-
-            const relatedConcepts = await this.generateRelatedConcepts(query, fullContent)
-
+    console.log('Generating streaming response using local fallback')
+    
+    // Generate response using fallback
+    const response = await this.generateFallbackResponse(context, query, 'Local streaming mode')
+    
+    // Create a readable stream that simulates streaming
+    return new ReadableStream({
+      start(controller) {
+        const content = response.content
+        const words = content.split(' ')
+        let index = 0
+        
+        const interval = setInterval(() => {
+          if (index < words.length) {
+            const data = JSON.stringify({
+              type: 'content',
+              content: words[index] + ' ',
+              fullContent: words.slice(0, index + 1).join(' ')
+            })
+            controller.enqueue(new TextEncoder().encode(`data: ${data}\n\n`))
+            index++
+          } else {
             // Send final metadata
             const finalData = JSON.stringify({
               type: 'complete',
-              citations,
-              confidence: this.calculateConfidence(fullContent, context),
-              suggestedActions: this.generateSuggestedActions(context.mode, query),
-              relatedConcepts,
+              citations: response.citations,
+              confidence: response.confidence,
+              suggestedActions: response.suggestedActions,
+              relatedConcepts: response.relatedConcepts,
             })
             controller.enqueue(new TextEncoder().encode(`data: ${finalData}\n\n`))
-            
             controller.close()
-          } catch (error) {
-            console.error('Error in streaming response:', error)
-            const errorData = JSON.stringify({
-              type: 'error',
-              error: 'Failed to generate streaming response'
-            })
-            controller.enqueue(new TextEncoder().encode(`data: ${errorData}\n\n`))
-            controller.close()
+            clearInterval(interval)
           }
-        }
-      })
-    } catch (error) {
-      console.error('Error creating streaming response:', error)
-      throw new Error('Failed to create streaming response')
-    }
+        }, 50) // Emit a word every 50ms
+      }
+    })
   }
 
   async analyzeDocument(document: Document): Promise<{
@@ -389,67 +263,47 @@ Remember, the best insights often come from your own thinking and connections!`
       content: string
     }>
   }> {
-    try {
-      console.log('Starting document analysis for:', document.title)
-      const prompt = DOCUMENT_ANALYSIS_PROMPT.replace('{content}', document.content.substring(0, 2000))
-      
-      console.log('Calling Bytez API for document analysis...')
-      const completion = await bytezClient.chat([
-        { role: 'system', content: prompt }
-      ], {
-        temperature: 0.3,
-        maxTokens: 1000,
-      })
-
-      const analysis = completion.choices[0]?.message?.content || ''
-      console.log('Bytez API response received, length:', analysis.length)
-      
-      // Parse the analysis
-      const keyTopics = this.extractKeyTopics(analysis)
-      const summary = this.extractSummary(analysis)
-      const concepts = this.extractConcepts(analysis)
-      const suggestedNodes = await this.generateNodesFromAnalysis(document, analysis)
-
-      console.log('Document analysis completed:', {
-        keyTopics: keyTopics.length,
-        concepts: concepts.length,
-        suggestedNodes: suggestedNodes.length
-      })
-
-      return {
-        keyTopics,
-        summary,
-        concepts,
-        suggestedNodes,
-      }
-    } catch (error) {
-      console.error('Error analyzing document:', error)
-      console.log('Using enhanced fallback for document analysis')
-      // Enhanced fallback - analyze document without AI
-      return this.generateFallbackAnalysis(document)
-    }
+    console.log('Analyzing document using local fallback system for:', document.title)
+    // Always use fallback - no API calls
+    return this.generateFallbackAnalysis(document)
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
-    try {
-      // Bytez doesn't support embeddings, return mock embedding
-      console.warn('Embeddings not supported by Bytez, returning mock embedding')
-      return new Array(1536).fill(0).map(() => Math.random())
-    } catch (error) {
-      console.error('Error generating embedding:', error)
-      throw new Error('Failed to generate embedding')
-    }
+    console.log('Generating local text-based embedding')
+    // Generate simple hash-based embedding for local similarity
+    return this.generateLocalEmbedding(text)
   }
 
   async generateEmbeddings(texts: string[]): Promise<number[][]> {
-    try {
-      // Bytez doesn't support embeddings, return mock embeddings
-      console.warn('Embeddings not supported by Bytez, returning mock embeddings')
-      return texts.map(() => new Array(1536).fill(0).map(() => Math.random()))
-    } catch (error) {
-      console.error('Error generating embeddings:', error)
-      throw new Error('Failed to generate embeddings')
+    console.log('Generating local text-based embeddings for', texts.length, 'texts')
+    return texts.map(text => this.generateLocalEmbedding(text))
+  }
+
+  private generateLocalEmbedding(text: string): number[] {
+    // Simple local embedding based on text characteristics
+    const words = text.toLowerCase().split(/\s+/)
+    const embedding = new Array(384).fill(0) // Smaller embedding size
+    
+    // Use text characteristics to generate embedding
+    words.forEach((word, index) => {
+      const hash = this.simpleHash(word)
+      const pos = hash % embedding.length
+      embedding[pos] += 1 / (index + 1) // Weight by position
+    })
+    
+    // Normalize
+    const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0))
+    return magnitude > 0 ? embedding.map(val => val / magnitude) : embedding
+  }
+
+  private simpleHash(str: string): number {
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32-bit integer
     }
+    return Math.abs(hash)
   }
 
   async findSimilarDocuments(
@@ -469,78 +323,57 @@ Remember, the best insights often come from your own thinking and connections!`
   }
 
   private async extractCitations(content: string, documents: Document[], query?: string): Promise<Citation[]> {
-    try {
-      // Use the enhanced CitationService for better citation extraction
-      const { CitationService } = await import('./citation-service')
+    console.log('Extracting citations using local text analysis')
+    
+    // Simple local citation extraction
+    const citations: Citation[] = []
+    
+    // Look for document references in the content
+    documents.forEach(doc => {
+      const titleWords = doc.title.toLowerCase().split(/\s+/)
+      const contentLower = content.toLowerCase()
       
-      const citations = await CitationService.generateCitations(content, query || '', documents)
-      
-      // Enhance confidence scoring for each citation
-      const enhancedCitations = await Promise.all(
-        citations.map(async (citation) => {
-          const document = documents.find(doc => doc.id === citation.documentId)
-          if (document && query) {
-            const enhancedConfidence = await CitationService.enhancedConfidenceScoring(
-              citation,
-              document,
-              query,
-              content
-            )
-            return { ...citation, confidence: enhancedConfidence }
-          }
-          return citation
-        })
+      // Check if document title or key phrases appear in content
+      const relevantPhrases = titleWords.filter(word => 
+        word.length > 3 && contentLower.includes(word)
       )
-
-      return enhancedCitations
-    } catch (error) {
-      console.error('Error extracting citations:', error)
       
-      // Fallback to simple citation extraction
-      const citations: Citation[] = []
-      const citationRegex = /\[Source: "([^"]+)" - "([^"]+)"\]/g
-      let match
-
-      while ((match = citationRegex.exec(content)) !== null) {
-        const [, title, excerpt] = match
-        const document = documents.find(doc => doc.title.includes(title))
+      if (relevantPhrases.length > 0) {
+        // Find a relevant excerpt from the document
+        const excerpt = doc.content.substring(0, 100) + '...'
         
-        if (document) {
-          citations.push({
-            documentId: document.id,
-            title: document.title,
-            excerpt,
-            confidence: 0.8,
-          })
-        }
+        citations.push({
+          documentId: doc.id,
+          title: doc.title,
+          excerpt,
+          confidence: Math.min(0.9, relevantPhrases.length * 0.3),
+        })
       }
+    })
 
-      return citations
-    }
+    return citations.slice(0, 3) // Limit to top 3 citations
   }
 
   private async generateRelatedConcepts(query: string, response: string): Promise<string[]> {
-    try {
-      const prompt = `Based on this query and response, suggest 3-5 related concepts that the user might want to explore:
-
-Query: ${query}
-Response: ${response.substring(0, 500)}...
-
-Return only a comma-separated list of concepts.`
-
-      const completion = await this.getClient().createChatCompletion([
-        { role: 'system', content: prompt }
-      ], {
-        temperature: 0.5,
-        maxTokens: 100,
-      })
-
-      const concepts = completion.choices[0]?.message?.content || ''
-      return concepts.split(',').map(c => c.trim()).filter(c => c.length > 0)
-    } catch (error) {
-      console.error('Error generating related concepts:', error)
-      return []
-    }
+    console.log('Generating related concepts using local text analysis')
+    
+    // Extract key terms from query and response
+    const text = (query + ' ' + response).toLowerCase()
+    const words = text.split(/\s+/).filter(word => word.length > 4)
+    
+    // Count word frequency
+    const wordCount: { [key: string]: number } = {}
+    words.forEach(word => {
+      wordCount[word] = (wordCount[word] || 0) + 1
+    })
+    
+    // Get most frequent meaningful words as related concepts
+    const concepts = Object.entries(wordCount)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([word]) => word.charAt(0).toUpperCase() + word.slice(1))
+    
+    return concepts
   }
 
   private calculateConfidence(content: string, context: AIContext): number {
@@ -681,37 +514,33 @@ Return only a comma-separated list of concepts.`
     title: string
     content: string
   }>> {
-    try {
-      const prompt = NODE_GENERATION_PROMPT
-        .replace('{title}', document.title)
-        .replace('{content}', analysis)
-
-      const completion = await this.getClient().createChatCompletion([
-        { role: 'system', content: prompt }
-      ], {
-        temperature: 0.4,
-        maxTokens: 800,
+    console.log('Generating nodes using local text analysis')
+    
+    // Generate nodes based on key topics and concepts
+    const keyTopics = this.extractKeyTopics(analysis)
+    const concepts = this.extractConcepts(analysis)
+    
+    const nodes: Array<{ type: string; title: string; content: string }> = []
+    
+    // Create nodes from key topics
+    keyTopics.forEach((topic, index) => {
+      nodes.push({
+        type: index === 0 ? 'main_topic' : 'concept',
+        title: topic,
+        content: `Key concept related to ${topic} from ${document.title}`
       })
-
-      const response = completion.choices[0]?.message?.content || ''
-      
-      // Try to parse as JSON, fallback to simple parsing
-      try {
-        return JSON.parse(response)
-      } catch {
-        // Fallback to simple node generation
-        return [
-          {
-            type: 'concept',
-            title: document.title,
-            content: analysis.substring(0, 200) + '...'
-          }
-        ]
-      }
-    } catch (error) {
-      console.error('Error generating nodes from analysis:', error)
-      return []
-    }
+    })
+    
+    // Add concept nodes
+    concepts.slice(0, 3).forEach(concept => {
+      nodes.push({
+        type: concept.type,
+        title: concept.title,
+        content: concept.description
+      })
+    })
+    
+    return nodes.slice(0, 6) // Limit to 6 nodes
   }
 
   private parseMemoryCardsFromText(text: string): Array<{
@@ -880,6 +709,44 @@ Return only a comma-separated list of concepts.`
 
     console.log(`Generated ${cards.length} fallback memory cards`)
     return cards
+  }
+
+  private generateLocalConnectionSuggestion(node1Content: string, node2Content: string): {
+    relationshipType: string
+    strength: number
+    label: string
+    explanation: string
+  } | null {
+    try {
+      const words1 = node1Content.toLowerCase().split(/\s+/)
+      const words2 = node2Content.toLowerCase().split(/\s+/)
+      
+      // Find common words
+      const commonWords = words1.filter(word => 
+        words2.includes(word) && word.length > 3
+      )
+      
+      if (commonWords.length === 0) {
+        return {
+          relationshipType: 'relates_to',
+          strength: 3,
+          label: 'related',
+          explanation: 'These concepts may be related in the same domain'
+        }
+      }
+      
+      const strength = Math.min(10, Math.max(1, commonWords.length * 2))
+      
+      return {
+        relationshipType: 'relates_to',
+        strength,
+        label: `connected via: ${commonWords.slice(0, 2).join(', ')}`,
+        explanation: `These concepts share common elements: ${commonWords.slice(0, 3).join(', ')}`
+      }
+    } catch (error) {
+      console.error('Error in local connection suggestion:', error)
+      return null
+    }
   }
 
   private generateFallbackAnalysis(document: Document): {

@@ -24,8 +24,10 @@ export default function CognitiveMapsPage() {
   const { user } = useAuth()
   const [maps, setMaps] = useState<CognitiveMap[]>([])
   const [selectedMap, setSelectedMap] = useState<string | null>(null)
+  const [selectedMapData, setSelectedMapData] = useState<any>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMap, setIsLoadingMap] = useState(false)
   const [canvasActions, setCanvasActions] = useState<{
     save: () => Promise<void>
     exportPNG: () => Promise<void>
@@ -86,12 +88,28 @@ export default function CognitiveMapsPage() {
     setSelectedMap('new')
   }
 
-  const openMap = (mapId: string) => {
-    setSelectedMap(mapId)
+  const openMap = async (mapId: string) => {
+    try {
+      setIsLoadingMap(true)
+      setSelectedMap(mapId)
+      console.log('Loading map data for:', mapId)
+      
+      // Load the full map data with nodes and connections
+      const mapData = await cognitiveMapAPI.getCognitiveMap(mapId)
+      console.log('Loaded map data:', mapData)
+      setSelectedMapData(mapData)
+    } catch (error) {
+      console.error('Error loading map:', error)
+      toast.error('Failed to load cognitive map')
+      setSelectedMap(null)
+    } finally {
+      setIsLoadingMap(false)
+    }
   }
 
   const goBack = () => {
     setSelectedMap(null)
+    setSelectedMapData(null)
     setIsCreating(false)
   }
 
@@ -123,45 +141,78 @@ export default function CognitiveMapsPage() {
 
         {/* Cognitive Map Canvas */}
         <div className="h-[calc(100vh-4rem)] overflow-hidden">
-          <CognitiveMapCanvas
-            initialNodes={[
-              {
-                id: 'n1',
-                type: 'mindmap',
-                position: { x: 150, y: 140 },
-                data: { label: 'Central Concept' },
-              },
-              {
-                id: 'n2',
-                type: 'mindmap',
-                position: { x: 380, y: 90 },
-                data: { label: 'Idea A' },
-              },
-              {
-                id: 'n3',
-                type: 'mindmap',
-                position: { x: 380, y: 210 },
-                data: { label: 'Idea B' },
-              },
-            ]}
-            initialEdges={[
-              { id: 'e1-2', source: 'n1', target: 'n2' },
-              { id: 'e1-3', source: 'n1', target: 'n3' },
-            ]}
-            onSave={() => {
-              // After save in canvas, refresh list and return
-              loadCognitiveMaps()
-              toast.success('Map saved. Returning to list...')
-              goBack()
-            }}
-            onEdgeCreate={(edge) => {
-              console.log('Created connection', edge)
-            }}
-            onNodeDragStop={(node) => {
-              console.log('Node moved', node.id, node.position)
-            }}
-            exposeActions={handleExposeActions}
-          />
+          {isLoadingMap ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading cognitive map...</p>
+              </div>
+            </div>
+          ) : (
+            <CognitiveMapCanvas
+              initialNodes={
+                isCreating 
+                  ? [
+                      {
+                        id: 'n1',
+                        type: 'mindmap',
+                        position: { x: 150, y: 140 },
+                        data: { label: 'Central Concept' },
+                      },
+                      {
+                        id: 'n2',
+                        type: 'mindmap',
+                        position: { x: 380, y: 90 },
+                        data: { label: 'Idea A' },
+                      },
+                      {
+                        id: 'n3',
+                        type: 'mindmap',
+                        position: { x: 380, y: 210 },
+                        data: { label: 'Idea B' },
+                      },
+                    ]
+                  : selectedMapData?.map?.nodes?.map((node: any) => ({
+                      id: node.id,
+                      type: 'mindmap',
+                      position: { x: node.positionX || 100, y: node.positionY || 100 },
+                      data: { 
+                        label: node.title || 'Concept',
+                        description: node.content || ''
+                      },
+                    })) || []
+              }
+              initialEdges={
+                isCreating
+                  ? [
+                      { id: 'e1-2', source: 'n1', target: 'n2' },
+                      { id: 'e1-3', source: 'n1', target: 'n3' },
+                    ]
+                  : selectedMapData?.map?.connections?.map((conn: any) => ({
+                      id: conn.id,
+                      source: conn.sourceNodeId,
+                      target: conn.targetNodeId,
+                      label: conn.label || '',
+                      type: 'default',
+                      animated: false,
+                      style: { stroke: '#94a3b8', strokeWidth: 2 }
+                    })) || []
+              }
+              onSave={() => {
+                // After save in canvas, refresh list and return
+                loadCognitiveMaps()
+                toast.success('Map saved. Returning to list...')
+                goBack()
+              }}
+              onEdgeCreate={(edge) => {
+                console.log('Created connection', edge)
+              }}
+              onNodeDragStop={(node) => {
+                console.log('Node moved', node.id, node.position)
+              }}
+              exposeActions={handleExposeActions}
+            />
+          )}
         </div>
       </div>
     )

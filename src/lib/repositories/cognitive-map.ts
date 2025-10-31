@@ -529,6 +529,34 @@ export class CognitiveMapRepository extends BaseRepository<CognitiveMapWithRelat
       createdAt: new Date(row.created_at)
     }
   }
+
+  // Debug method to check repository state
+  getRepositoryStats() {
+    if (!this.isElectronAvailable()) {
+      // In-memory stats
+      const nodesByMap: Record<string, number> = {}
+      for (const [mapId, nodes] of InMemoryStore.mapNodes.entries()) {
+        nodesByMap[mapId] = nodes.length
+      }
+      
+      return {
+        totalMaps: InMemoryStore.maps.size,
+        totalNodes: Array.from(InMemoryStore.mapNodes.values()).reduce((sum, nodes) => sum + nodes.length, 0),
+        totalConnections: Array.from(InMemoryStore.mapConnections.values()).reduce((sum, conns) => sum + conns.length, 0),
+        maps: Array.from(InMemoryStore.maps.values()).map(m => ({ id: m.id, title: m.title })),
+        nodesByMap
+      }
+    }
+    
+    // For Electron DB, we'd need to implement SQL queries
+    return {
+      totalMaps: 0,
+      totalNodes: 0,
+      totalConnections: 0,
+      maps: [],
+      nodesByMap: {}
+    }
+  }
 }
 
 // In-memory store used in web/SSR where Electron DB is not available

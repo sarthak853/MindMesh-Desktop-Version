@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindMesh - AI Learning Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="logo">
+                <h1>🧠 MindMesh</h1>
+                <span>AI Learning Platform</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn-secondary" onclick="openSettings()">Settings</button>
+                <button class="btn-secondary" onclick="showHelp()">Help</button>
+            </div>
+        </header>
+        
+        <div class="main-container">
+            <div class="sidebar">
+                <nav class="nav-tabs">
+                    <button class="nav-tab active" data-tab="upload">
+                        <span class="tab-icon">📁</span>Upload
+                    </button>
+                    <button class="nav-tab" data-tab="map">
+                        <span class="tab-icon">🗺️</span>Cognitive Map
+                    </button>
+                    <button class="nav-tab" data-tab="flashcards">
+                        <span class="tab-icon">🃏</span>Flashcards
+                    </button>
+                    <button class="nav-tab" data-tab="chat">
+                        <span class="tab-icon">💬</span>AI Chat
+                    </button>
+                </nav>
+                
+                <div class="content-list">
+                    <h3>Your Content</h3>
+                    <div id="documents-list">
+                        <p class="empty-state">No content uploaded yet</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <!-- Upload Tab -->
+                <div id="upload-tab" class="tab-content active">
+                    <h2>Upload Learning Materials</h2>
+                    
+                    <div class="upload-section">
+                        <h3>📄 Upload Documents</h3>
+                        <div class="drop-zone" id="drop-zone">
+                            <div class="drop-zone-content">
+                                <div class="upload-icon">📁</div>
+                                <p>Drag & drop files here or click to browse</p>
+                                <p class="file-types">Supports: PDF, TXT, MD</p>
+                            </div>
+                        </div>
+                        <input type="file" id="file-input" accept=".pdf,.txt,.md" style="display: none;">
+                    </div>
+
+                    <div class="upload-section">
+                        <h3>🎥 Process Video</h3>
+                        <form id="video-form" class="video-form">
+                            <input type="url" id="video-url" placeholder="Enter YouTube URL or video link" class="video-input">
+                            <button type="submit" class="btn-primary">Process Video</button>
+                        </form>
+                    </div>
+
+                    <div id="processing-indicator" class="processing-indicator" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Processing your content... This may take a few moments.</p>
+                    </div>
+                </div>
+
+                <!-- Map Tab -->
+                <div id="map-tab" class="tab-content">
+                    <h2>🗺️ Cognitive Map</h2>
+                    <div class="empty-state">
+                        <p>Select content from the sidebar to view its cognitive map</p>
+                    </div>
+                    <div id="map-content" style="display: none;">
+                        <div class="map-controls">
+                            <button class="btn-primary" onclick="openHierarchicalGraph()">
+                                🌳 Open Hierarchical Graph
+                            </button>
+                            <button class="btn-secondary" onclick="resetMapView()">
+                                🔄 Reset View
+                            </button>
+                        </div>
+                        
+                        <div class="map-layout">
+                            <!-- Keywords Panel -->
+                            <div class="keywords-panel">
+                                <h3>📌 Extracted Keywords</h3>
+                                <div id="keywords-list" class="keywords-list">
+                                    <p class="loading">Loading keywords...</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Network Visualization -->
+                            <div class="network-wrapper">
+                                <div id="network-container" class="network-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flashcards Tab -->
+                <div id="flashcards-tab" class="tab-content">
+                    <h2>🃏 Flashcards</h2>
+                    <div class="empty-state" id="flashcards-empty">
+                        <p>Select content from the sidebar to study flashcards</p>
+                    </div>
+                    
+                    <div id="flashcards-content" style="display: none;">
+                        <div class="flashcard-header">
+                            <h3 id="flashcard-document-name">Document Name</h3>
+                            <div class="card-counter">
+                                <span id="current-card-number">1</span> of <span id="total-cards">0</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flashcard-container">
+                            <div class="flashcard" id="flashcard">
+                                <div class="card-type" id="card-type">Definition</div>
+                                <div class="card-difficulty" id="card-difficulty">Medium</div>
+                                
+                                <div class="card-content">
+                                    <div class="question-section">
+                                        <h4>Question:</h4>
+                                        <p id="card-question">Loading...</p>
+                                    </div>
+                                    
+                                    <!-- Interactive Answer Input -->
+                                    <div class="answer-input-section" id="answer-input-section" style="display: none;">
+                                        <!-- For Fill-in-blank -->
+                                        <div id="text-input-container" style="display: none;">
+                                            <input type="text" id="user-answer-input" class="answer-input" placeholder="Type your answer here...">
+                                            <button class="btn-primary" onclick="checkAnswer()">Check Answer</button>
+                                        </div>
+                                        
+                                        <!-- For MCQ -->
+                                        <div id="mcq-container" style="display: none;">
+                                            <div class="mcq-options" id="mcq-options"></div>
+                                            <button class="btn-primary" onclick="checkMCQAnswer()">Check Answer</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Feedback Section -->
+                                    <div class="feedback-section" id="feedback-section" style="display: none;">
+                                        <div id="feedback-message" class="feedback-message"></div>
+                                    </div>
+                                    
+                                    <div class="answer-section" id="answer-section" style="display: none;">
+                                        <h4>Correct Answer:</h4>
+                                        <p id="card-answer">Loading...</p>
+                                        <div id="card-hint" class="card-hint" style="display: none;"></div>
+                                        <div id="card-related" class="card-related" style="display: none;"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="card-actions">
+                                    <button class="btn-primary" id="try-answer-btn" onclick="tryAnswer()" style="display: none;">
+                                        Try to Answer
+                                    </button>
+                                    
+                                    <button class="btn-primary" id="show-answer-btn" onclick="showAnswer()">
+                                        Show Answer
+                                    </button>
+                                    
+                                    <div class="answer-actions" id="answer-actions" style="display: none;">
+                                        <button class="btn-success" onclick="rateCard('easy')">😊 Easy</button>
+                                        <button class="btn-warning" onclick="rateCard('medium')">🤔 Medium</button>
+                                        <button class="btn-danger" onclick="rateCard('hard')">😓 Hard</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flashcard-navigation">
+                                <button class="btn-secondary" onclick="previousCard()">← Previous</button>
+                                <button class="btn-secondary" onclick="nextCard()">Next →</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Tab -->
+                <div id="chat-tab" class="tab-content">
+                    <h2>💬 AI Chat Assistant</h2>
+                    <div class="chat-container">
+                        <div class="messages" id="messages">
+                            <div class="welcome-message">
+                                <p>👋 Hi! I'm your AI learning assistant. Ask me anything about your study materials!</p>
+                            </div>
+                        </div>
+                        
+                        <form id="chat-form" class="chat-input">
+                            <input type="text" id="chat-input" placeholder="Ask me about your study materials..." class="message-input">
+                            <button type="submit" class="send-button">Send</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Main App Component
+        function App() {
+            const [activeTab, setActiveTab] = useState('upload');
+            const [documents, setDocuments] = useState([]);
+            const [currentContent, setCurrentContent] = useState(null);
+            const [cognitiveMap, setCognitiveMap] = useState(null);
+            const [flashcards, setFlashcards] = useState([]);
+            const [chatMessages, setChatMessages] = useState([]);
+            const [isProcessing, setIsProcessing] = useState(false);
+
+            return (
+                <div className="app">
+                    <Header />
+                    <div className="main-container">
+                        <Sidebar 
+                            activeTab={activeTab} 
+                            setActiveTab={setActiveTab}
+                            documents={documents}
+                            setCurrentContent={setCurrentContent}
+                        />
+                        <MainContent 
+                            activeTab={activeTab}
+                            currentContent={currentContent}
+                            cognitiveMap={cognitiveMap}
+                            setCognitiveMap={setCognitiveMap}
+                            flashcards={flashcards}
+                            setFlashcards={setFlashcards}
+                            chatMessages={chatMessages}
+                            setChatMessages={setChatMessages}
+                            setDocuments={setDocuments}
+                            isProcessing={isProcessing}
+                            setIsProcessing={setIsProcessing}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        // Header Component
+        function Header() {
+            return (
+                <header className="header">
+                    <div className="logo">
+                        <h1>🧠 MindMesh</h1>
+                        <span>AI Learning Platform</span>
+                    </div>
+                    <div className="header-actions">
+                        <button className="btn-secondary">Settings</button>
+                        <button className="btn-secondary">Help</button>
+                    </div>
+                </header>
+            );
+        }
+
+        // Sidebar Component
+        function Sidebar({ activeTab, setActiveTab, documents, setCurrentContent }) {
+            const tabs = [
+                { id: 'upload', label: 'Upload', icon: '📁' },
+                { id: 'map', label: 'Cognitive Map', icon: '🗺️' },
+                { id: 'flashcards', label: 'Flashcards', icon: '🃏' },
+                { id: 'chat', label: 'AI Chat', icon: '💬' },
+            ];
+
+            return (
+                <div className="sidebar">
+                    <nav className="nav-tabs">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
+                                onClick={() => setActiveTab(tab.id)}
+                            >
+                                <span className="tab-icon">{tab.icon}</span>
+                                {tab.label}
+                            </button>
+                        ))}
+                    </nav>
+                    
+                    <div className="content-list">
+                        <h3>Your Content</h3>
+                        {documents.length === 0 ? (
+                            <p className="empty-state">No content uploaded yet</p>
+                        ) : (
+                            documents.map(doc => (
+                                <div 
+                                    key={doc.id} 
+                                    className="content-item"
+                                    onClick={() => setCurrentContent(doc)}
+                                >
+                                    <div className="content-title">{doc.filename || doc.title}</div>
+                                    <div className="content-type">{doc.type}</div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Main Content Component
+        function MainContent({ 
+            activeTab, 
+            currentContent, 
+            cognitiveMap, 
+            setCognitiveMap,
+            flashcards,
+            setFlashcards,
+            chatMessages,
+            setChatMessages,
+            setDocuments,
+            isProcessing,
+            setIsProcessing
+        }) {
+            const renderContent = () => {
+                switch (activeTab) {
+                    case 'upload':
+                        return <UploadTab setDocuments={setDocuments} setIsProcessing={setIsProcessing} isProcessing={isProcessing} />;
+                    case 'map':
+                        return <CognitiveMapTab cognitiveMap={cognitiveMap} currentContent={currentContent} setCognitiveMap={setCognitiveMap} />;
+                    case 'flashcards':
+                        return <FlashcardsTab flashcards={flashcards} currentContent={currentContent} setFlashcards={setFlashcards} />;
+                    case 'chat':
+                        return <ChatTab messages={chatMessages} setMessages={setChatMessages} currentContent={currentContent} />;
+                    default:
+                        return <div>Select a tab</div>;
+                }
+            };
+
+            return (
+                <div className="main-content">
+                    {renderContent()}
+                </div>
+            );
+        }
+
+        // Upload Tab Component
+        function UploadTab({ setDocuments, setIsProcessing, isProcessing }) {
+            const [dragOver, setDragOver] = useState(false);
+            const [videoUrl, setVideoUrl] = useState('');
+            const fileInputRef = useRef();
+
+            const handleFileUpload = async (files) => {
+                if (!files || files.length === 0) return;
+                
+                setIsProcessing(true);
+                const file = files[0];
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch('http://127.0.0.1:8000/upload-document', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Add to documents list
+                        setDocuments(prev => [...prev, {
+                            id: result.document_id,
+                            filename: file.name,
+                            type: 'document',
+                            conceptsCount: result.concepts_count,
+                            flashcardsCount: result.flashcards_count
+                        }]);
+                        
+                        alert('Document processed successfully!');
+                    } else {
+                        alert('Error processing document');
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    alert('Error uploading document');
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+
+            const handleVideoSubmit = async (e) => {
+                e.preventDefault();
+                if (!videoUrl.trim()) return;
+                
+                setIsProcessing(true);
+                
+                try {
+                    const response = await fetch('http://127.0.0.1:8000/process-video', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ url: videoUrl })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        setDocuments(prev => [...prev, {
+                            id: result.video_id,
+                            title: 'Video Content',
+                            type: 'video',
+                            url: videoUrl,
+                            conceptsCount: result.concepts_count,
+                            flashcardsCount: result.flashcards_count
+                        }]);
+                        
+                        setVideoUrl('');
+                        alert('Video processed successfully!');
+                    } else {
+                        alert('Error processing video');
+                    }
+                } catch (error) {
+                    console.error('Video processing error:', error);
+                    alert('Error processing video');
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+
+            return (
+                <div className="upload-tab">
+                    <h2>Upload Learning Materials</h2>
+                    
+                    {/* Document Upload */}
+                    <div className="upload-section">
+                        <h3>📄 Upload Documents</h3>
+                        <div 
+                            className={`drop-zone ${dragOver ? 'drag-over' : ''}`}
+                            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                            onDragLeave={() => setDragOver(false)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setDragOver(false);
+                                handleFileUpload(e.dataTransfer.files);
+                            }}
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <div className="drop-zone-content">
+                                <div className="upload-icon">📁</div>
+                                <p>Drag & drop files here or click to browse</p>
+                                <p className="file-types">Supports: PDF, TXT, MD</p>
+                            </div>
+                        </div>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".pdf,.txt,.md"
+                            onChange={(e) => handleFileUpload(e.target.files)}
+                            style={{ display: 'none' }}
+                        />
+                    </div>
+
+                    {/* Video URL */}
+                    <div className="upload-section">
+                        <h3>🎥 Process Video</h3>
+                        <form onSubmit={handleVideoSubmit} className="video-form">
+                            <input
+                                type="url"
+                                placeholder="Enter YouTube URL or video link"
+                                value={videoUrl}
+                                onChange={(e) => setVideoUrl(e.target.value)}
+                                className="video-input"
+                            />
+                            <button type="submit" className="btn-primary" disabled={isProcessing}>
+                                Process Video
+                            </button>
+                        </form>
+                    </div>
+
+                    {isProcessing && (
+                        <div className="processing-indicator">
+                            <div className="spinner"></div>
+                            <p>Processing your content... This may take a few moments.</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Cognitive Map Tab Component
+        function CognitiveMapTab({ cognitiveMap, currentContent, setCognitiveMap }) {
+            const networkRef = useRef();
+            const containerRef = useRef();
+
+            useEffect(() => {
+                if (currentContent && containerRef.current) {
+                    loadCognitiveMap(currentContent.id);
+                }
+            }, [currentContent]);
+
+            const loadCognitiveMap = async (contentId) => {
+                try {
+                    // In a real implementation, you'd fetch the cognitive map from the backend
+                    // For now, we'll create a sample map
+                    const sampleMap = {
+                        nodes: [
+                            { id: 1, label: 'Main Concept', x: 0, y: 0, color: '#3498db' },
+                            { id: 2, label: 'Related Idea', x: 100, y: 100, color: '#2ecc71' },
+                            { id: 3, label: 'Supporting Detail', x: -100, y: 100, color: '#e74c3c' }
+                        ],
+                        edges: [
+                            { from: 1, to: 2, value: 3 },
+                            { from: 1, to: 3, value: 2 }
+                        ]
+                    };
+                    
+                    setCognitiveMap(sampleMap);
+                    renderNetwork(sampleMap);
+                } catch (error) {
+                    console.error('Error loading cognitive map:', error);
+                }
+            };
+
+            const renderNetwork = (mapData) => {
+                if (!containerRef.current || !window.vis) return;
+
+                const data = {
+                    nodes: new vis.DataSet(mapData.nodes),
+                    edges: new vis.DataSet(mapData.edges)
+                };
+
+                const options = {
+                    nodes: {
+                        shape: 'dot',
+                        size: 30,
+                        font: { size: 14 },
+                        borderWidth: 2,
+                        shadow: true
+                    },
+                    edges: {
+                        width: 2,
+                        shadow: true,
+                        smooth: { type: 'continuous' }
+                    },
+                    physics: {
+                        stabilization: { iterations: 100 }
+                    }
+                };
+
+                networkRef.current = new vis.Network(containerRef.current, data, options);
+            };
+
+            return (
+                <div className="cognitive-map-tab">
+                    <h2>🗺️ Cognitive Map</h2>
+                    {currentContent ? (
+                        <div className="map-container">
+                            <div className="map-header">
+                                <h3>{currentContent.filename || currentContent.title}</h3>
+                                <div className="map-controls">
+                                    <button className="btn-secondary">Zoom In</button>
+                                    <button className="btn-secondary">Zoom Out</button>
+                                    <button className="btn-secondary">Reset View</button>
+                                </div>
+                            </div>
+                            <div ref={containerRef} className="network-container"></div>
+                        </div>
+                    ) : (
+                        <div className="empty-state">
+                            <p>Select content from the sidebar to view its cognitive map</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Flashcards Tab Component
+        function FlashcardsTab({ flashcards, currentContent, setFlashcards }) {
+            const [currentCardIndex, setCurrentCardIndex] = useState(0);
+            const [showAnswer, setShowAnswer] = useState(false);
+
+            useEffect(() => {
+                if (currentContent) {
+                    loadFlashcards(currentContent.id);
+                }
+            }, [currentContent]);
+
+            const loadFlashcards = async (contentId) => {
+                try {
+                    const response = await fetch(`http://127.0.0.1:8000/flashcards/${contentId}`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        setFlashcards(result.flashcards);
+                        setCurrentCardIndex(0);
+                        setShowAnswer(false);
+                    }
+                } catch (error) {
+                    console.error('Error loading flashcards:', error);
+                    // Sample flashcards for demo
+                    setFlashcards([
+                        {
+                            id: '1',
+                            question: 'What is the main concept discussed?',
+                            answer: 'This is a sample answer for the flashcard.',
+                            type: 'definition',
+                            difficulty: 'medium'
+                        }
+                    ]);
+                }
+            };
+
+            const nextCard = () => {
+                setCurrentCardIndex((prev) => (prev + 1) % flashcards.length);
+                setShowAnswer(false);
+            };
+
+            const prevCard = () => {
+                setCurrentCardIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length);
+                setShowAnswer(false);
+            };
+
+            const currentCard = flashcards[currentCardIndex];
+
+            return (
+                <div className="flashcards-tab">
+                    <h2>🃏 Flashcards</h2>
+                    {currentContent && flashcards.length > 0 ? (
+                        <div className="flashcard-container">
+                            <div className="flashcard-header">
+                                <h3>{currentContent.filename || currentContent.title}</h3>
+                                <div className="card-counter">
+                                    {currentCardIndex + 1} of {flashcards.length}
+                                </div>
+                            </div>
+                            
+                            <div className="flashcard">
+                                <div className="card-content">
+                                    <div className="question">
+                                        <h4>Question:</h4>
+                                        <p>{currentCard.question}</p>
+                                    </div>
+                                    
+                                    {showAnswer && (
+                                        <div className="answer">
+                                            <h4>Answer:</h4>
+                                            <p>{currentCard.answer}</p>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="card-actions">
+                                    {!showAnswer ? (
+                                        <button 
+                                            className="btn-primary"
+                                            onClick={() => setShowAnswer(true)}
+                                        >
+                                            Show Answer
+                                        </button>
+                                    ) : (
+                                        <div className="answer-actions">
+                                            <button className="btn-success">Easy</button>
+                                            <button className="btn-warning">Medium</button>
+                                            <button className="btn-danger">Hard</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            
+                            <div className="navigation">
+                                <button onClick={prevCard} className="btn-secondary">Previous</button>
+                                <button onClick={nextCard} className="btn-secondary">Next</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="empty-state">
+                            <p>Select content from the sidebar to study flashcards</p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Chat Tab Component
+        function ChatTab({ messages, setMessages, currentContent }) {
+            const [inputMessage, setInputMessage] = useState('');
+            const [isTyping, setIsTyping] = useState(false);
+            const messagesEndRef = useRef();
+
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+
+            const sendMessage = async (e) => {
+                e.preventDefault();
+                if (!inputMessage.trim()) return;
+
+                const userMessage = {
+                    id: Date.now(),
+                    text: inputMessage,
+                    sender: 'user',
+                    timestamp: new Date()
+                };
+
+                setMessages(prev => [...prev, userMessage]);
+                setInputMessage('');
+                setIsTyping(true);
+
+                try {
+                    const response = await fetch('http://127.0.0.1:8000/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: inputMessage,
+                            context_id: currentContent?.id
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    const aiMessage = {
+                        id: Date.now() + 1,
+                        text: result.response || 'Sorry, I couldn\'t generate a response.',
+                        sender: 'ai',
+                        timestamp: new Date()
+                    };
+
+                    setMessages(prev => [...prev, aiMessage]);
+                } catch (error) {
+                    console.error('Chat error:', error);
+                    const errorMessage = {
+                        id: Date.now() + 1,
+                        text: 'Sorry, I\'m having trouble connecting. Please try again.',
+                        sender: 'ai',
+                        timestamp: new Date()
+                    };
+                    setMessages(prev => [...prev, errorMessage]);
+                } finally {
+                    setIsTyping(false);
+                }
+            };
+
+            return (
+                <div className="chat-tab">
+                    <h2>💬 AI Chat Assistant</h2>
+                    
+                    <div className="chat-container">
+                        <div className="messages">
+                            {messages.length === 0 && (
+                                <div className="welcome-message">
+                                    <p>👋 Hi! I'm your AI learning assistant. Ask me anything about your study materials!</p>
+                                </div>
+                            )}
+                            
+                            {messages.map(message => (
+                                <div key={message.id} className={`message ${message.sender}`}>
+                                    <div className="message-content">
+                                        <p>{message.text}</p>
+                                        <span className="timestamp">
+                                            {message.timestamp.toLocaleTimeString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                            
+                            {isTyping && (
+                                <div className="message ai typing">
+                                    <div className="message-content">
+                                        <div className="typing-indicator">
+                                            <span></span>
+                                            <span></span>
+                                            <span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div ref={messagesEndRef} />
+                        </div>
+                        
+                        <form onSubmit={sendMessage} className="chat-input">
+                            <input
+                                type="text"
+                                value={inputMessage}
+                                onChange={(e) => setInputMessage(e.target.value)}
+                                placeholder="Ask me about your study materials..."
+                                className="message-input"
+                            />
+                            <button type="submit" className="send-button">Send</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('app'));
+    </script>
+</body>
+</html>
+ 
+   <script>
+        // Simple vanilla JavaScript for MindMesh
+        const { ipcRenderer } = require('electron');
+        let currentContent = null;
+        let documents = [];
+
+        // Tab switching
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.dataset.tab;
+                switchTab(tabId);
+            });
+        });
+
+        function switchTab(tabId) {
+            // Update active tab
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            
+            // Update active content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+        }
+
+        // File upload handling
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('click', () => {
+            handleFileUpload();
+        });
+        
+        // Keep drag and drop functionality but use file dialog
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFileUpload();
+        });
+
+        async function handleFileUpload() {
+            showProcessing(true);
+            
+            try {
+                // Use file dialog for desktop app
+                const filePath = await ipcRenderer.invoke('select-file');
+                if (!filePath) {
+                    showProcessing(false);
+                    return;
+                }
+                
+                const result = await ipcRenderer.invoke('upload-document', filePath);
+                console.log('Upload result:', result);
+                
+                if (result.success) {
+                    addDocument({
+                        id: result.document_id,
+                        filename: result.filename,
+                        type: 'document'
+                    });
+                    alert('Document processed successfully!');
+                } else {
+                    alert('Error processing document: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Error uploading document: ' + error.message);
+            } finally {
+                showProcessing(false);
+            }
+        }
+
+        // Video processing
+        document.getElementById('video-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const videoUrl = document.getElementById('video-url').value.trim();
+            if (!videoUrl) return;
+            
+            showProcessing(true);
+            
+            try {
+                const result = await ipcRenderer.invoke('process-video', videoUrl);
+                
+                if (result.success) {
+                    addDocument({
+                        id: result.video_id,
+                        title: result.title || 'Video Content',
+                        type: 'video',
+                        url: videoUrl
+                    });
+                    document.getElementById('video-url').value = '';
+                    alert('Video processed successfully!');
+                } else {
+                    alert('Error processing video: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Video processing error:', error);
+                alert('Error processing video: ' + error.message);
+            } finally {
+                showProcessing(false);
+            }
+        });
+
+        // Chat functionality
+        document.getElementById('chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addMessage(message, 'user');
+            input.value = '';
+
+            try {
+                const result = await ipcRenderer.invoke('chat-message', message, currentContent?.id);
+                addMessage(result.response || 'Sorry, I couldn\'t generate a response.', 'ai');
+            } catch (error) {
+                console.error('Chat error:', error);
+                addMessage('Sorry, I\'m having trouble connecting. Please try again.', 'ai');
+            }
+        });
+
+        function addMessage(text, sender) {
+            const messagesContainer = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <p>${text}</p>
+                    <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+                </div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addDocument(doc) {
+            documents.push(doc);
+            updateDocumentsList();
+        }
+
+        function updateDocumentsList() {
+            const container = document.getElementById('documents-list');
+            if (documents.length === 0) {
+                container.innerHTML = '<p class="empty-state">No content uploaded yet</p>';
+                return;
+            }
+
+            container.innerHTML = documents.map(doc => `
+                <div class="content-item" onclick="selectContent('${doc.id}')">
+                    <div class="content-title">${doc.filename || doc.title}</div>
+                    <div class="content-type">${doc.type}</div>
+                </div>
+            `).join('');
+        }
+
+        window.selectContent = async function(docId) {
+            console.log('Selecting content:', docId);
+            currentContent = documents.find(d => d.id === docId);
+            if (!currentContent) {
+                console.log('Content not found');
+                return;
+            }
+            
+            console.log('Current content:', currentContent);
+            
+            // Load keywords
+            try {
+                const keywordsResult = await ipcRenderer.invoke('get-keywords', docId);
+                console.log('Keywords result:', keywordsResult);
+                if (keywordsResult.success && keywordsResult.keywords) {
+                    displayKeywords(keywordsResult.keywords, keywordsResult.hierarchy);
+                }
+            } catch (error) {
+                console.error('Error loading keywords:', error);
+            }
+            
+            // Load cognitive map
+            try {
+                const mapResult = await ipcRenderer.invoke('get-cognitive-map', docId);
+                console.log('Map result:', mapResult);
+                if (mapResult.success && mapResult.cognitive_map) {
+                    displayCognitiveMap(mapResult.cognitive_map);
+                } else {
+                    console.log('No cognitive map found or error:', mapResult);
+                }
+            } catch (error) {
+                console.error('Error loading cognitive map:', error);
+            }
+            
+            // Load flashcards
+            try {
+                const flashcardsResult = await ipcRenderer.invoke('get-flashcards', docId);
+                if (flashcardsResult.success) {
+                    displayFlashcards(flashcardsResult.flashcards);
+                }
+            } catch (error) {
+                console.error('Error loading flashcards:', error);
+            }
+        }
+        
+        function displayKeywords(keywords, hierarchy) {
+            console.log('Displaying keywords:', keywords);
+            const keywordsList = document.getElementById('keywords-list');
+            
+            if (!keywords || keywords.length === 0) {
+                keywordsList.innerHTML = '<p class="empty">No keywords extracted</p>';
+                return;
+            }
+            
+            // Group keywords by category
+            const categoryGroups = {};
+            keywords.forEach(kw => {
+                if (!categoryGroups[kw.category]) {
+                    categoryGroups[kw.category] = [];
+                }
+                categoryGroups[kw.category].push(kw);
+            });
+            
+            // Create HTML for keywords
+            let html = '';
+            Object.entries(categoryGroups).forEach(([category, kws]) => {
+                const categoryName = formatCategory(category);
+                const categoryColor = getCategoryColor(category);
+                
+                html += `
+                    <div class="keyword-category">
+                        <h4 style="color: ${categoryColor}">
+                            ${categoryName} (${kws.length})
+                        </h4>
+                        <div class="keyword-items">
+                `;
+                
+                kws.slice(0, 5).forEach(kw => {
+                    const scorePercent = Math.min(100, kw.score * 100);
+                    html += `
+                        <div class="keyword-item" style="border-left-color: ${categoryColor}">
+                            <div class="keyword-word">${kw.word}</div>
+                            <div class="keyword-score">
+                                <div class="score-bar" style="width: ${scorePercent}%; background: ${categoryColor}"></div>
+                                <span class="score-value">${kw.score.toFixed(3)}</span>
+                            </div>
+                            ${kw.relatedTerms && kw.relatedTerms.length > 0 ? 
+                                `<div class="keyword-related">Related: ${kw.relatedTerms.join(', ')}</div>` : ''}
+                        </div>
+                    `;
+                });
+                
+                if (kws.length > 5) {
+                    html += `<p class="more-keywords">+ ${kws.length - 5} more</p>`;
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            keywordsList.innerHTML = html;
+        }
+        
+        function formatCategory(category) {
+            const categoryNames = {
+                'structure': 'Document Structure',
+                'definition': 'Definitions',
+                'important': 'Key Concepts',
+                'example': 'Examples',
+                'process': 'Processes & Methods',
+                'concept': 'General Concepts'
+            };
+            return categoryNames[category] || category;
+        }
+        
+        function getCategoryColor(category) {
+            const colors = {
+                'structure': '#9b59b6',
+                'definition': '#2ecc71',
+                'important': '#e74c3c',
+                'example': '#f39c12',
+                'process': '#1abc9c',
+                'concept': '#34495e'
+            };
+            return colors[category] || '#95a5a6';
+        }
+        
+        function displayCognitiveMap(cognitiveMap) {
+            console.log('Displaying cognitive map:', cognitiveMap);
+            const mapTab = document.getElementById('map-tab');
+            const emptyState = mapTab.querySelector('.empty-state');
+            const mapContent = document.getElementById('map-content');
+            const networkContainer = document.getElementById('network-container');
+            
+            console.log('Map elements:', { mapTab, emptyState, mapContent, networkContainer });
+            
+            if (cognitiveMap && cognitiveMap.nodes && cognitiveMap.nodes.length > 0) {
+                console.log('Cognitive map has nodes:', cognitiveMap.nodes.length);
+                emptyState.style.display = 'none';
+                mapContent.style.display = 'block';
+                
+                // Use vis-network if available
+                if (window.vis) {
+                    const data = {
+                        nodes: new vis.DataSet(cognitiveMap.nodes),
+                        edges: new vis.DataSet(cognitiveMap.edges || [])
+                    };
+                    
+                    const options = {
+                        nodes: {
+                            shape: 'dot',
+                            size: 30,
+                            font: { size: 14 },
+                            borderWidth: 2
+                        },
+                        edges: {
+                            width: 2,
+                            smooth: { type: 'continuous' }
+                        },
+                        physics: {
+                            stabilization: { iterations: 100 },
+                            barnesHut: {
+                                gravitationalConstant: -2000,
+                                springConstant: 0.001,
+                                springLength: 200
+                            }
+                        },
+                        layout: {
+                            hierarchical: {
+                                enabled: true,
+                                direction: 'UD',
+                                sortMethod: 'directed',
+                                levelSeparation: 150
+                            }
+                        }
+                    };
+                    
+                    new vis.Network(networkContainer, data, options);
+                }
+            } else {
+                emptyState.style.display = 'block';
+                mapContent.style.display = 'none';
+            }
+        }
+        
+        window.openHierarchicalGraph = async function() {
+            if (!currentContent) {
+                alert('Please select a document first');
+                return;
+            }
+            
+            try {
+                const result = await ipcRenderer.invoke('open-hierarchical-graph', currentContent.id);
+                if (!result.success) {
+                    alert('Error opening hierarchical graph: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error opening hierarchical graph:', error);
+                alert('Error opening hierarchical graph: ' + error.message);
+            }
+        }
+        
+        window.resetMapView = function() {
+            // Reset the network view if it exists
+            const networkContainer = document.getElementById('network-container');
+            if (networkContainer && window.vis) {
+                // Trigger a re-render
+                if (currentContent) {
+                    selectContent(currentContent.id);
+                }
+            }
+        }
+        
+        let currentFlashcards = [];
+        let currentCardIndex = 0;
+        
+        function displayFlashcards(flashcards) {
+            console.log('Loaded flashcards:', flashcards);
+            
+            const emptyState = document.getElementById('flashcards-empty');
+            const flashcardsContent = document.getElementById('flashcards-content');
+            
+            if (!flashcards || flashcards.length === 0) {
+                emptyState.style.display = 'block';
+                flashcardsContent.style.display = 'none';
+                return;
+            }
+            
+            currentFlashcards = flashcards;
+            currentCardIndex = 0;
+            
+            emptyState.style.display = 'none';
+            flashcardsContent.style.display = 'block';
+            
+            // Update document name
+            if (currentContent) {
+                document.getElementById('flashcard-document-name').textContent = 
+                    currentContent.filename || currentContent.title || 'Document';
+            }
+            
+            // Update total cards
+            document.getElementById('total-cards').textContent = flashcards.length;
+            
+            // Show first card
+            showCard(0);
+        }
+        
+        function showCard(index) {
+            if (!currentFlashcards || currentFlashcards.length === 0) return;
+            
+            // Ensure index is within bounds
+            if (index < 0) index = currentFlashcards.length - 1;
+            if (index >= currentFlashcards.length) index = 0;
+            
+            currentCardIndex = index;
+            const card = currentFlashcards[index];
+            
+            // Update card counter
+            document.getElementById('current-card-number').textContent = index + 1;
+            
+            // Update card type and difficulty
+            document.getElementById('card-type').textContent = 
+                card.type ? card.type.charAt(0).toUpperCase() + card.type.slice(1) : 'Question';
+            document.getElementById('card-difficulty').textContent = 
+                card.difficulty ? card.difficulty.charAt(0).toUpperCase() + card.difficulty.slice(1) : 'Medium';
+            
+            // Set difficulty color
+            const difficultyEl = document.getElementById('card-difficulty');
+            difficultyEl.className = 'card-difficulty difficulty-' + (card.difficulty || 'medium');
+            
+            // Update question
+            document.getElementById('card-question').textContent = card.question || 'No question available';
+            
+            // Update answer (but keep it hidden)
+            document.getElementById('card-answer').textContent = card.answer || 'No answer available';
+            
+            // Update hint if available
+            const hintEl = document.getElementById('card-hint');
+            if (card.hint) {
+                hintEl.textContent = '💡 Hint: ' + card.hint;
+                hintEl.style.display = 'block';
+            } else {
+                hintEl.style.display = 'none';
+            }
+            
+            // Update related terms if available
+            const relatedEl = document.getElementById('card-related');
+            if (card.relatedTerms && card.relatedTerms.length > 0) {
+                relatedEl.textContent = '🔗 Related: ' + card.relatedTerms.join(', ');
+                relatedEl.style.display = 'block';
+            } else {
+                relatedEl.style.display = 'none';
+            }
+            
+            // Reset all sections
+            document.getElementById('answer-input-section').style.display = 'none';
+            document.getElementById('text-input-container').style.display = 'none';
+            document.getElementById('mcq-container').style.display = 'none';
+            document.getElementById('feedback-section').style.display = 'none';
+            document.getElementById('answer-section').style.display = 'none';
+            document.getElementById('answer-actions').style.display = 'none';
+            
+            // Show appropriate buttons based on card type
+            const canTryAnswer = card.type === 'fill-in-blank' || card.type === 'definition' || card.type === 'recall';
+            document.getElementById('try-answer-btn').style.display = canTryAnswer ? 'block' : 'none';
+            document.getElementById('show-answer-btn').style.display = 'block';
+        }
+        
+        window.tryAnswer = function() {
+            const card = currentFlashcards[currentCardIndex];
+            
+            // Hide buttons
+            document.getElementById('try-answer-btn').style.display = 'none';
+            document.getElementById('show-answer-btn').style.display = 'none';
+            
+            // Show appropriate input based on card type
+            document.getElementById('answer-input-section').style.display = 'block';
+            
+            if (card.type === 'fill-in-blank') {
+                // Show text input for fill-in-blank
+                document.getElementById('text-input-container').style.display = 'block';
+                document.getElementById('user-answer-input').value = '';
+                document.getElementById('user-answer-input').focus();
+            } else {
+                // Show MCQ for other types
+                document.getElementById('mcq-container').style.display = 'block';
+                generateMCQOptions(card);
+            }
+        }
+        
+        function generateMCQOptions(card) {
+            const mcqContainer = document.getElementById('mcq-options');
+            mcqContainer.innerHTML = '';
+            
+            // Generate options (correct answer + 3 distractors)
+            const correctAnswer = card.answer;
+            const options = [correctAnswer];
+            
+            // Generate distractors from other cards or related terms
+            const otherCards = currentFlashcards.filter((c, i) => i !== currentCardIndex);
+            for (let i = 0; i < 3 && i < otherCards.length; i++) {
+                if (otherCards[i].answer && otherCards[i].answer !== correctAnswer) {
+                    options.push(otherCards[i].answer.substring(0, 50));
+                }
+            }
+            
+            // Shuffle options
+            options.sort(() => Math.random() - 0.5);
+            
+            // Create option buttons
+            options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'mcq-option';
+                optionDiv.innerHTML = `
+                    <input type="radio" name="mcq-answer" id="option-${index}" value="${option}">
+                    <label for="option-${index}">${option}</label>
+                `;
+                mcqContainer.appendChild(optionDiv);
+            });
+        }
+        
+        window.checkAnswer = function() {
+            const card = currentFlashcards[currentCardIndex];
+            const userAnswer = document.getElementById('user-answer-input').value.trim().toLowerCase();
+            const correctAnswer = card.answer.toLowerCase();
+            
+            const feedbackSection = document.getElementById('feedback-section');
+            const feedbackMessage = document.getElementById('feedback-message');
+            
+            feedbackSection.style.display = 'block';
+            
+            // Check if answer is correct (allow partial matches for fill-in-blank)
+            const isCorrect = correctAnswer.includes(userAnswer) || userAnswer.includes(correctAnswer.split(' ')[0]);
+            
+            if (isCorrect) {
+                feedbackMessage.className = 'feedback-message correct';
+                feedbackMessage.innerHTML = '✅ Correct! Well done!';
+            } else {
+                feedbackMessage.className = 'feedback-message incorrect';
+                feedbackMessage.innerHTML = '❌ Not quite right. Try again or see the answer below.';
+            }
+            
+            // Show the correct answer
+            document.getElementById('answer-section').style.display = 'block';
+            document.getElementById('answer-actions').style.display = 'flex';
+        }
+        
+        window.checkMCQAnswer = function() {
+            const card = currentFlashcards[currentCardIndex];
+            const selectedOption = document.querySelector('input[name="mcq-answer"]:checked');
+            
+            const feedbackSection = document.getElementById('feedback-section');
+            const feedbackMessage = document.getElementById('feedback-message');
+            
+            if (!selectedOption) {
+                feedbackMessage.className = 'feedback-message';
+                feedbackMessage.innerHTML = '⚠️ Please select an option';
+                feedbackSection.style.display = 'block';
+                return;
+            }
+            
+            feedbackSection.style.display = 'block';
+            
+            const userAnswer = selectedOption.value;
+            const correctAnswer = card.answer;
+            
+            // Check if answer is correct
+            const isCorrect = userAnswer === correctAnswer || correctAnswer.includes(userAnswer);
+            
+            if (isCorrect) {
+                feedbackMessage.className = 'feedback-message correct';
+                feedbackMessage.innerHTML = '✅ Correct! Excellent!';
+            } else {
+                feedbackMessage.className = 'feedback-message incorrect';
+                feedbackMessage.innerHTML = '❌ Incorrect. See the correct answer below.';
+            }
+            
+            // Highlight correct/incorrect options
+            document.querySelectorAll('.mcq-option').forEach(option => {
+                const input = option.querySelector('input');
+                if (input.value === correctAnswer || correctAnswer.includes(input.value)) {
+                    option.classList.add('correct-option');
+                } else if (input.checked) {
+                    option.classList.add('incorrect-option');
+                }
+            });
+            
+            // Show the correct answer
+            document.getElementById('answer-section').style.display = 'block';
+            document.getElementById('answer-actions').style.display = 'flex';
+        }
+        
+        window.showAnswer = function() {
+            document.getElementById('answer-section').style.display = 'block';
+            document.getElementById('show-answer-btn').style.display = 'none';
+            document.getElementById('try-answer-btn').style.display = 'none';
+            document.getElementById('answer-actions').style.display = 'flex';
+        }
+        
+        window.nextCard = function() {
+            showCard(currentCardIndex + 1);
+        }
+        
+        window.previousCard = function() {
+            showCard(currentCardIndex - 1);
+        }
+        
+        window.rateCard = function(difficulty) {
+            console.log('Card rated as:', difficulty);
+            // In a full implementation, this would update spaced repetition schedule
+            // For now, just move to next card
+            nextCard();
+        }
+
+        function showProcessing(show) {
+            const indicator = document.getElementById('processing-indicator');
+            indicator.style.display = show ? 'block' : 'none';
+        }
+        
+        // Load existing documents on startup
+        async function loadExistingDocuments() {
+            try {
+                const result = await ipcRenderer.invoke('get-documents');
+                if (result.success) {
+                    documents = [...result.documents, ...result.videos];
+                    updateDocumentsList();
+                }
+            } catch (error) {
+                console.error('Error loading documents:', error);
+            }
+        }
+        
+        // Settings and help functions
+        function openSettings() {
+            ipcRenderer.invoke('open-settings');
+        }
+        
+        function showHelp() {
+            alert('MindMesh Help\n\n' +
+                  '1. Upload documents using the Upload tab\n' +
+                  '2. Process YouTube videos by entering URLs\n' +
+                  '3. View concept relationships in the Cognitive Map\n' +
+                  '4. Study with auto-generated Flashcards\n' +
+                  '5. Ask questions using the AI Chat\n\n' +
+                  'Configure your Gemini API key in Settings for full AI features.');
+        }
+        
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            loadExistingDocuments();
+        });
+    </script>
+</body>
+</html>

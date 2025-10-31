@@ -7,7 +7,7 @@ export async function GET() {
       timestamp: new Date().toISOString(),
       services: {
         database: 'in-memory',
-        ai: process.env.BYTEZ_API_KEY ? 'configured' : 'not-configured',
+        ai: 'local-mode',
         auth: 'mock-user'
       }
     })

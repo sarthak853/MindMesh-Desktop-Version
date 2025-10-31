@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server'
-import { bytezClient } from '@/lib/ai/bytez-client'
+// No external API clients - using local mode only
 
 export async function GET() {
   try {
     const status = {
       timestamp: new Date().toISOString(),
-      bytezClient: {
-        available: bytezClient.isAvailable(),
-        model: bytezClient.getModel(),
-        hasApiKey: !!process.env.BYTEZ_API_KEY,
-        baseUrl: process.env.AI_API_BASE_URL || 'https://api.bytez.com/v1'
+      localMode: {
+        available: true,
+        model: 'local-fallback',
+        hasApiKey: false, // Not needed
+        baseUrl: 'Local processing'
       },
-      fallbackMode: !bytezClient.isAvailable(),
+      fallbackMode: false, // Local mode is primary
       endpoints: {
         chat: '/api/ai/chat',
         generateNodes: '/api/ai/generate-nodes',

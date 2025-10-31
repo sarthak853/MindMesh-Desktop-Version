@@ -1,129 +1,45 @@
 {
-  "name": "mindmesh",
-  "version": "0.1.0",
-  "private": true,
-  "main": "dist/electron/main.js",
-  "homepage": "./",
+  "name": "mindmesh-ai-learning-platform",
+  "version": "1.0.0",
+  "description": "AI-powered learning platform with cognitive mapping, flashcards, and intelligent chat - Desktop App",
+  "main": "src/main.js",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron dist/electron/main.js\"",
-    "electron:build": "npm run build && npm run electron:compile && electron-builder",
-    "electron:compile": "tsc electron/main.ts electron/preload.ts electron/database.ts electron/auth.ts electron/utils.ts --outDir dist/electron --target es2020 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck --resolveJsonModule",
-    "electron:pack": "npm run build && npm run electron:compile && electron-builder --dir",
-    "postinstall": "electron-builder install-app-deps"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
-  },
-  "dependencies": {
-    "@prisma/client": "^5.15.0",
-    "@radix-ui/react-avatar": "^1.1.1",
-    "@radix-ui/react-dialog": "^1.1.2",
-    "@radix-ui/react-dropdown-menu": "^2.1.2",
-    "@radix-ui/react-label": "^2.1.7",
-    "@radix-ui/react-progress": "^1.1.7",
-    "@radix-ui/react-scroll-area": "^1.2.10",
-    "@radix-ui/react-select": "^2.1.2",
-    "@radix-ui/react-separator": "^1.1.0",
-    "@radix-ui/react-switch": "^1.1.1",
-    "@radix-ui/react-tabs": "^1.1.13",
-    "@tanstack/react-query": "^5.45.1",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/sqlite3": "^3.1.11",
-    "autoprefixer": "^10.4.19",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.1",
-    "globalthis": "^1.0.4",
-    "html-to-image": "^1.11.13",
-    "ioredis": "^5.4.1",
-    "jsonwebtoken": "^9.0.2",
-    "jspdf": "^3.0.3",
-    "lucide-react": "^0.400.0",
-    "next": "^15.0.0",
-    "openai": "^4.52.7",
-    "postcss": "^8.4.38",
-    "process": "^0.11.10",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "reactflow": "^11.11.4",
-    "redis": "^4.6.14",
-    "socket.io-client": "^4.7.5",
-    "sonner": "^2.0.7",
-    "sqlite3": "^5.1.7",
-    "tailwind-merge": "^2.3.0",
-    "tailwindcss": "^3.4.1"
-  },
-  "devDependencies": {
-    "@types/node": "^20.14.8",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@types/uuid": "^10.0.0",
-    "concurrently": "^9.2.1",
-    "cross-env": "^10.0.0",
-    "electron": "^37.3.1",
-    "electron-builder": "^26.0.12",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "^15.0.0",
-    "prisma": "^5.15.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.4.5",
-    "uuid": "^10.0.0",
-    "wait-on": "^8.0.4"
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "dist": "electron-builder --publish=never"
   },
   "build": {
-    "appId": "com.mindmesh.app",
+    "appId": "com.mindmesh.desktop",
     "productName": "MindMesh",
     "directories": {
-      "output": "release"
+      "output": "dist"
     },
     "files": [
-      "dist/electron/**/*",
-      "out/**/*",
+      "src/**/*",
       "node_modules/**/*",
       "package.json"
     ],
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ]
-    },
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
     },
     "linux": {
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "target": "AppImage",
+      "icon": "assets/icon.png"
     }
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "natural": "^8.1.0",
+    "pdf2json": "^4.0.0",
+    "sqlite3": "^5.1.6"
   }
 }

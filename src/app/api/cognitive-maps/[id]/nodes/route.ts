@@ -5,6 +5,39 @@ import { cache } from '@/lib/cache'
 
 const cognitiveMapRepository = new CognitiveMapRepository()
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await getCurrentUser()
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const mapId = params.id
+
+    // Check if map exists and user has access
+    const map = await cognitiveMapRepository.findById(mapId)
+    if (!map) {
+      return NextResponse.json({ error: 'Map not found' }, { status: 404 })
+    }
+
+    if (map.userId !== user.id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    return NextResponse.json({ nodes: map.nodes })
+  } catch (error) {
+    console.error('Error fetching nodes:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch nodes' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

@@ -6,21 +6,16 @@ class OpenAIClient {
   private defaultModel: string = 'gpt-4o-mini'
 
   constructor() {
-    const aiModelEnv = process.env.AI_MODEL
-
-    // Prefer OpenRouter if available, else fallback to OpenAI
-    if (process.env.OPENROUTER_API_KEY) {
-      this.client = new OpenAI({
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseURL: process.env.AI_API_BASE_URL || 'https://api.openrouter.ai/v1',
-      })
-      this.defaultModel = aiModelEnv || 'meta-llama/llama-3.1-8b-instruct'
-    } else if (process.env.OPENAI_API_KEY) {
-      this.client = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      })
-      this.defaultModel = aiModelEnv || 'gpt-4o-mini'
-    }
+    // Always use local mode - no external API calls
+    console.warn('OpenAI client disabled - using local mode only')
+    this.client = null
+    this.defaultModel = 'local-fallback'
+    
+    console.log('OpenAI Client initialized in local mode:', {
+      hasClient: false,
+      model: this.defaultModel,
+      localMode: true
+    })
   }
 
   async createChatCompletion(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], options?: {
